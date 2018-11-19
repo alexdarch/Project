@@ -1,0 +1,7 @@
+*.zip
+*/.idea
+*/__pycache__
+AlphaZero_Implementation
+TicTacToe
+*.pdf
+*.pickle
