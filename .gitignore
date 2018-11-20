@@ -5,3 +5,6 @@ AlphaZero_Implementation
 Orthello
 *.pdf
 *.pickle
+OpenAIGym/.ipynb_checkpoints
+OpenAIGym/Cartpole/.idea
+OpenAIGym/Cartpole/__pycache__
