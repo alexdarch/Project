@@ -32,6 +32,7 @@ class MCTS():
         """
 
         for i in range(self.args.numMCTSSims):
+            print("-------- CALL SEARCH -------")
             self.search(state2D, deepcopy(curr_env), done=False)
 
         s = curr_env.get1Dstate(state2D)
@@ -71,6 +72,7 @@ class MCTS():
 
         # ---------------- TERMINAL STATE ---------------
         if done:
+            print("        -- TERMINAL STATE --") # 8 spaces
             return 1
 
         # ------------- EXPLORING FROM A LEAF NODE ----------------------
@@ -79,6 +81,7 @@ class MCTS():
         # Note, we do not take an action here. Just get an initial policy
         # Also get the state value - work this out later
         if s not in self.Ps:
+            print("        -- LEAF NODE --")
             self.Ps[s], v = self.nnet.predict(state2D)
             sum_Ps_s = np.sum(self.Ps[s])
             self.Ps[s] /= sum_Ps_s  # Is this necessary?

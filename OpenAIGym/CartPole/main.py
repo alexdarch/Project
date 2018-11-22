@@ -15,7 +15,7 @@ args = dotdict({
     'numMCTSSims': 25,
     'arenaCompare': 40,
     'cpuct': 1,
-    'num_channels': 512,
+    'num_channels': 128,
     'dropout': 0.3,
     'checkpoint': './temp/',
     'load_model': False,

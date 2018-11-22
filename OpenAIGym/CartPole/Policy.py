@@ -22,7 +22,7 @@ pargs = dotdict({
     'dropout': 0.3,
     'epochs': 10,
     'batch_size': 64,
-    'cuda': False, # torch.cuda.is_available()
+    'cuda': False,  # torch.cuda.is_available(),
     'num_channels': 512,
 })
 
@@ -44,9 +44,8 @@ class NeuralNet(nn.Module):
         self.args = args
         self.pareto = 1
 
-        # if args.cuda:
-        #     self.nnet.cuda()
-        # game params
+        # torch.cuda.init()   # initialise gpu? necessary?
+        print(torch.cuda.get_device_name(0))
 
         super(NeuralNet, self).__init__()
         self.conv1 = nn.Conv2d(1, pargs.num_channels, 3, stride=1, padding=1)
@@ -70,7 +69,6 @@ class NeuralNet(nn.Module):
         self.fc4 = nn.Linear(512, 1)
 
     def forward(self, s):
-        #                                                           s: batch_size x board_x x board_y
         s = s.view(-1, 1, self.x_size, self.x_size)                # batch_size x 1 x board_x x board_y
         # s = s.view(-1, 1 * self.x_size * self.x_size)                # batch_size x 1 x board_x x board_y
         s = F.relu(self.bn1(self.conv1(s)))                          # batch_size x num_channels x board_x x board_y
@@ -162,8 +160,8 @@ class NeuralNet(nn.Module):
         """
         # preparing input
         state = torch.FloatTensor(state_2D.astype(np.float64))
-        # if pargs.cuda:
-        #     state = state.contiguous().cuda()
+        if pargs.cuda:
+            state = state.contiguous().cuda()
 
         # or instead of the decorator use this ?:
         # with torch.no_grad():
@@ -174,6 +172,7 @@ class NeuralNet(nn.Module):
         # state = Variable(state, volatile=True)
         state = state.view(1, self.x_size, self.x_size)
 
+        # print(type(state))
         self.eval()
         pi, v = self.forward(state)
         return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]

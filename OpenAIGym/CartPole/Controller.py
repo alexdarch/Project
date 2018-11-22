@@ -45,16 +45,18 @@ class Controller():
         episodeStep = 0
         state2D = self.env.get2Dstate(observation)
         score = 0
-
+        print("---- NEW EPISODE -------------")
         while True:
-            print("--------- New Episode ---------")
             episodeStep += 1
             state2D = self.env.get2Dstate(observation, state2D)
 
             # ---------- GET PROBABILITIES FOR EACH ACTION --------------
             temp = int(episodeStep < self.args.tempThreshold)  # temperature = 0 if first step, 1 otherwise
             curr_env = deepcopy(self.env)
+            print("------ GET ACTION PROB ------------")
             pi = self.mcts.getActionProb(state2D, curr_env, temp=temp)
+            print("------ ACTION PROB: ", pi)
+            curr_env.printState(state2D)
 
             example.append([state2D, pi, score])
 
@@ -79,7 +81,7 @@ class Controller():
 
         for i in range(1, self.args.numIters + 1):
             # bookkeeping
-            print('------ITER ' + str(i) + '------')
+            print('-----------------ITER ' + str(i) + '--------------------')
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > 1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
