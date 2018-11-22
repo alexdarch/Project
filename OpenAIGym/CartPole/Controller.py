@@ -1,44 +1,107 @@
-from Policy import Net
+from collections import deque
+# from Arena import Arena
+from MCTS import MCTS
 import numpy as np
+# from pytorch_classification.utils import Bar, AverageMeter
+# import time, os, sys
+# from pickle import Pickler, Unpickler
+from random import shuffle
 from collections import Counter
-import torch
+from Policy import NeuralNet
 from copy import deepcopy
-import MCTS
 
 
 class Controller():
+    """
+    This class executes the self-play + learning. It uses the functions defined
+    in Game and NeuralNet. args are specified in main.py.
+    """
 
-    def __init__(self, game, args, nnet=None):
-
-        self.nnet = nnet  # the nnet "is part of" the controller -> composition (or aggregation?.. implemented by pointer/reference in c++)
-        # self.mcts = MCTS()
-        self.args = args
+    def __init__(self, game, nnet, args):
         self.env = game
+        self.nnet = nnet
+        # self.pnet = self.nnet.__class__(self.env)  # the competitor network
+        self.args = args
+        self.mcts = MCTS(self.env, self.nnet, self.args)
+        self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
+        self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
+
+    def executeEpisode(self):
+        """
+        This function executes one episode of self-play, starting with player 1.
+        As the game is played, each turn is added as a training example to
+        trainExamples. The game is played till the game ends. After the game
+        ends, the outcome of the game is used to assign values to each example
+        in trainExamples.
+        It uses a temp=1 if episodeStep < tempThreshold, and thereafter
+        uses temp=0.
+        Returns:
+            trainExamples: a list of examples of the form (canonicalBoard, pi, v)
+                           pi is the MCTS informed policy vector, v is +1 if
+                           the player eventually won the game, else -1.
+        """
+        example = []
+        observation = self.env.reset()
+        episodeStep = 0
+        state2D = self.env.get2Dstate(observation)
+        score = 0
+
+        while True:
+            print("--------- New Episode ---------")
+            episodeStep += 1
+            state2D = self.env.get2Dstate(observation, state2D)
+
+            # ---------- GET PROBABILITIES FOR EACH ACTION --------------
+            temp = int(episodeStep < self.args.tempThreshold)  # temperature = 0 if first step, 1 otherwise
+            curr_env = deepcopy(self.env)
+            pi = self.mcts.getActionProb(state2D, curr_env, temp=temp)
+
+            example.append([state2D, pi, score])
+
+            # ---------- TAKE NEXT STEP PROBABILISTICALLY ---------------
+            action = np.random.choice(len(pi), p=pi)  # take a random choice with pi probability associated with each
+            observation, reward, done, info = self.env.step(action)
+            score += reward
+
+            if done:
+                example = [(x[0], x[1], score-x[2]) for x in example]  # Convert scores to E[return]
+                return example  # return this example episode
+
 
     def policyIteration(self):
+        """
+        Performs numIters iterations with numEps episodes of self-play in each
+        iteration. After every iteration, it retrains neural network with
+        examples in trainExamples (which has a maximium length of maxlenofQueue).
+        It then pits the new neural network against the old one and accepts it
+        only if it wins >= updateThreshold fraction of games.
+        """
 
-        scores = np.array([])
-        # self.nnet = Net() # don't actually need to initiate the "prev_nnet",
-                            # since it is defined when we create a controller object
-        init_examples, curr_mean, curr_median = self.initialExamples()  # Don't need to pass a model
-        a_loss, v_loss, batch_acc = self.nnet.train_model(examples=init_examples)
+        for i in range(1, self.args.numIters + 1):
+            # bookkeeping
+            print('------ITER ' + str(i) + '------')
+            # examples of the iteration
+            if not self.skipFirstSelfPlay or i > 1:
+                iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+                scores = np.array([])
 
-        for i in range(self.args.policyUpdates):
+                # ----- GENERATE A NEW BATCH OF EPISODES BASED ON THE CURRENT NET----------
+                for eps in range(self.args.numEps):
+                    self.mcts = MCTS(self.env, self.nnet, self.args)  # reset search tree
+                    iterationTrainExamples += self.executeEpisode()
 
-            # ----- GENERATE A NEW BATCH OF EPISODES BASED ON THE CURRENT NET----------
-            exampleBatch = []
-            for e in range(self.args.policyEpisodes):
-                example = self.executeEpisode()
-                scores = np.append(scores, example[0, 5])
 
-                if len(exampleBatch) == 0:
-                    exampleBatch = example
-                else:
-                    exampleBatch = np.vstack((exampleBatch, example))
+                # save the iteration examples to the history
+                self.trainExamplesHistory.append(iterationTrainExamples)
 
             # -------- CREATE CHALLENGER POLICY BASED ON EXAMPLES GENERATED BY PREVIOUS POLICY -------------------
-            new_nnet = Net(self.env, self.args)  # create a new net to train
-            a_loss, v_loss, batch_acc = new_nnet.train_model(examples=exampleBatch)
+            # shuffle examples before training
+            trainExamples = []
+            for e in self.trainExamplesHistory:
+                trainExamples.extend(e)
+            shuffle(trainExamples)
+            new_nnet = NeuralNet(self.env, self.args)  # create a new net to train
+            new_nnet.train_model(examples=trainExamples)
 
             # -------- PRINT STATS ON NEW POLICY -------------
             new_mean, new_median = np.mean(scores), np.median(scores)
@@ -54,69 +117,32 @@ class Controller():
                 print("Policy Updated!")
                 print("New Policy: ", curr_mean, curr_median)
 
-        return self.nnet
+            # if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
+            #     print("len(trainExamplesHistory) =", len(self.trainExamplesHistory),
+            #           " => remove the oldest trainExamples")
+            #     self.trainExamplesHistory.pop(0)
+            # # backup history to a file
+            # # NB! the examples were collected using the model from the previous iteration, so (i-1)
+            # self.saveTrainExamples(i - 1)
 
-    def executeEpisode(self, init_egs=False):
-        ''' Generate and example episode of [4 x observation(t), action(t), E[return(t)]].
-            All values are in a (n x 6) numpy array where n is the number of steps for the
-            episode to finish or the limit of 200 steps'''
-        score = 0
-        example = np.zeros((self.args.goal_steps, 6))
-        prev_observation = self.env.reset()  # list of 4 elements
-
-        # --------- ITERATE UP TO 500 STEPS PER EPISODE -------------
-        for t in range(self.args.goal_steps):
-
-            # --------- GENERATE ACTION ------------
-            # We can generate random actions or actions from the previous policy (i.e. prev nnet)
-            if init_egs or t == 0:
-                action = self.env.action_space.sample()  # choose random action (0-left or 1-right)
-            else:
-                x = torch.tensor(prev_observation, dtype=torch.float)
-                action_prob, e_score = self.nnet.forward(x)
-                action = np.argmax(action_prob.detach().numpy())
-
-            observation, reward, done, info = self.env.step(action)
-
-            # --------- STORE STATE-ACTION PAIR + SCORE ------------
-            example[t, 0:4] = prev_observation[0:4]
-            example[t, 4:6] = [action, score]
-
-            prev_observation = np.array(observation)
-            score += reward  # +1 for every frame we haven't fallen
-
-            if done:
-                break
-
-        example[:, 5] = score - example[:, 5]  # Convert scores to E[return]
-        return example[0:int(score), :]  # we only want to return the parts with actual values
-
-    def initialExamples(self):
-        allExamples = []
-        accepted_scores = np.array([])  # just the scores that met our threshold
-
-        # --------------- ITERATE THROUGH 10000 EPISODE ------------------
-        for _ in range(self.args.initial_games):
-
-            exampleGame = self.executeEpisode(init_egs=True)
-
-            # --------- SAVE EXAMPLE (EPISODE) IF (SCORE > THRESHOLD) ----------
-            # Note, it does not save the score! Therefore all episodes with score > threshold
-            # are treated equally (not the best way of doing this!)
-            if exampleGame[0, 5] >= self.args.score_requirement:
-
-                accepted_scores = np.append(accepted_scores, exampleGame[0, 5])
-
-                if len(allExamples) == 0:
-                    allExamples = exampleGame
-                else:
-                    allExamples = np.vstack((allExamples, exampleGame))
-
-        # -------- PRINT STATS ------------
-        avg_mean, avg_median = np.mean(accepted_scores), np.median(accepted_scores)
-        print('Average accepted score: ', avg_mean)
-        print('Median score for accepted scores: ', avg_median)
-        print(Counter(accepted_scores))
-        print(len(accepted_scores))
-
-        return allExamples, avg_mean, avg_median
+            # # training new network, keeping a copy of the old one
+            # self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+            # self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+            # pmcts = MCTS(self.game, self.pnet, self.args)
+            #
+            # self.nnet.train(trainExamples)
+            # nmcts = MCTS(self.game, self.nnet, self.args)
+            #
+            # print('PITTING AGAINST PREVIOUS VERSION')
+            # arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
+            #               lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game)
+            # pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
+            #
+            # print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
+            # if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
+            #     print('REJECTING NEW MODEL')
+            #     self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+            # else:
+            #     print('ACCEPTING NEW MODEL')
+            #     self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
+            #     self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
