@@ -1,0 +1,87 @@
+\documentclass[a4paper]{article}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{cleveref}
+\usepackage{wrapfig}
+\usepackage{bbm} % for indicator function \mathbbm{1}
+\usepackage{pdfpages}
+%\usepackage{multirow}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{geometry}
+\usepackage{float}
+
+%\usepackage{matlab-prettifier}
+%\lstset{language=Matlab,
+%numbers=left,
+%numberstyle={\tiny \color{black}},% size of the numbers
+%numbersep=9pt, % this defines how far the numbers are from the text
+%}
+
+\geometry{margin=2.5cm}
+\author{Candidate Number: 5590E}
+\title{Technical Milestone Report}
+
+\date{\today}
+\begin{document}
+
+%\includepdf[pages=-]{coversheet.pdf}
+
+\maketitle
+
+\renewcommand{\abstractname}{Summary}
+\begin{abstract}
+Technical Summary
+\end{abstract}
+
+
+\section{Introduction/LitReview (What is the problem?)}
+ 
+\begin{itemize}
+   \item[-] Overview of AlphaZero Algorithm (basically the methods section of the AZ paper)
+\end{itemize}
+
+\section{Method}
+\begin{itemize}
+   \item[-] Program overview/structure (flowchart?)
+   \item[-] OpenAI implementation? This was difficult for me to do but there's not much I can say other than just showing the code
+   \item[-] Explain 2D state used
+   \item[-] Explain return function used
+   \item[-] Explain adversary used
+\end{itemize}
+
+\section{Results}
+\begin{itemize}
+   \item[-] Graphs of statistics for each policy iteration, eg, errors over time for each nnet
+   \item[-] Performance against random and a greedy algorithm (make the moves that move x pos closer to 0)
+   \item[-] Graphs of steps taken vs expected steps left
+   \item[-] Graphs of return vs time
+   \item[-] If I have time, ill compare different adversaries: vs greedy, vs itself with 1/2 power etc
+\end{itemize}  
+
+\section{Discussion}
+\begin{itemize}
+   \item[-] Explain the graphs above
+   \item[-] Talk about problems?
+   \item[-] Which adversary was the best
+   \item[-] Which method learnt the quickest
+   \item[-] Talk about which representation of 2D state is the best? I havent done any of the others...
+\end{itemize}
+
+\section{Future Plan}
+
+I'm less sure of what to write for this section? Is it just a timeline/gantt chart with a plan and then some text explaining what each part of the plan is?
+
+\begin{itemize}
+   \item[-] Expansion to other problems
+   \item[-] Timeline moving forward
+   \item[-] Improvement of Nnet? Improvement of binning?
+\end{itemize}
+
+
+
+
+
+\end{document}
