@@ -2,7 +2,7 @@ import gym
 from Controller import Controller
 from Policy import NeuralNet as nn
 from utils import *
-from CartPoleWrapper import CartPole
+from CartPoleWrapper import CartPoleWrapper
 import torch
 
 args = dotdict({
@@ -24,18 +24,18 @@ args = dotdict({
 })
 
 if __name__ == "__main__":
-    base_env = gym.make("CartPole-v0")
-    env = CartPole(base_env)
+    base_env = gym.make("CartPole-v1")
+    env = CartPoleWrapper(base_env)
     nnet = nn(env, args)
 
     # if args.load_model:
     #     nnet.load_checkpoint(args.load_folder_file[0], args.load_folder_file[1])
 
-    c = Controller(env, nnet, args)
+    # c = Controller(env, nnet, args)
     # if args.load_model:
     #     print("Load trainExamples from file")
     #     c.loadTrainExamples()
 
     print("Loaded Correctly")
-    c.policyIteration()
+    # c.policyIteration()
 
