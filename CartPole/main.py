@@ -1,11 +1,10 @@
-import gym
+# import gym
 from Controller import Controller
 from Policy import NeuralNet as nn
 from utils import *
 from CartPoleWrapper import CartPoleWrapper
-import torch
 
-args = dotdict({
+args = Utils({
     # ---------- POLICY ITER ARGS -----------
     'policyIters': 10,
     'numEps': 10,
@@ -23,7 +22,6 @@ args = dotdict({
 
 if __name__ == "__main__":
     env = CartPoleWrapper()   # equivalent to gym.make("CartPole-v1")
-    print("Beyond Done: ", env.steps_beyond_done)
     nnet = nn(env)
 
     # if args.load_model:

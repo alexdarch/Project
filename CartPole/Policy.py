@@ -1,6 +1,5 @@
 from utils import *
 import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,7 +13,7 @@ from torch.autograd import Variable
 # from torchvision import datasets, transforms
 # from pytorch_classification.utils import Bar, AverageMeter
 
-pargs = dotdict({
+pargs = Utils({
     # ---------- Policy args ------------
     'lr': 0.001,
     'dropout': 0.3,
@@ -41,7 +40,7 @@ class NetworkArchitecture(nn.Module):
         self.pareto = 0.1
 
         # torch.cuda.init()   # initialise gpu? necessary?
-        print(torch.cuda.get_device_name(0))
+        # print(torch.cuda.get_device_name(0))
 
         super(NetworkArchitecture, self).__init__()
         self.conv1 = nn.Conv2d(1, pargs.num_channels, 3, stride=1, padding=1)

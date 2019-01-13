@@ -1,5 +1,4 @@
-import gym
-from gym.envs.classic_control import CartPoleEnv # CartPoleEnv is a module, not an attribute -> can't indirectly import
+from gym.envs.classic_control import CartPoleEnv  # CartPoleEnv is a module, not an attribute -> can't indirectly import
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -20,16 +19,17 @@ class CartPoleWrapper(CartPoleEnv):
         self.discount = 0.7
         self.pos_size = 20
         self.ang_size = 20
-        self.steps_beyond_done = 16
+        self.steps_beyond_done = 16  # remember to change reset too
         self.pareto = self.x_threshold / self.theta_threshold_radians  # normalise so that x and theta are of the same magnitude
 
     def step(self, action):
-        observation, loss, done, info = super().step(action)
+        observation, reward, done, info = super().step(action)
         loss = self.state_loss()
         return observation, loss, done, info
 
     def reset(self, init_state=None):
         rand_obs = super().reset()  # call the base reset to do all of the other stuff
+        self.steps_beyond_done = 16  # removes the warning
         if init_state is None:
             return rand_obs
         self.state = np.array(init_state)  # and then edit state if we want (state is a base class attribute)
