@@ -1,16 +1,11 @@
 import math
 import numpy as np
-from copy import deepcopy
-
 EPS = 1e-8
 
 
 class MCTS():
-    """
-    This class handles the MCTS tree.
-    """
 
-    def __init__(self, game, nnet, args):
+    def __init__(self, game, nnet, args):  # remove env? Need to re-pass it in every move - not just the first move
         self.env = game
         self.nnet = nnet
         self.args = args
@@ -30,12 +25,12 @@ class MCTS():
             probs: a policy vector where the probability of the ith action is
                    proportional to Nsa[(s,a)]**(1./temp)
         """
-
+        observation = curr_env.get_observation()   # obs = [x_pos, x_vel, angle, ang_vel]
         for i in range(self.args.numMCTSSims):
             print("-------- CALL SEARCH -------")
-            self.search(state2D, deepcopy(curr_env), done=False)
+            self.search(state2D, curr_env.reset(observation), done=False)
 
-        s = curr_env.get1Dstate(state2D)
+        s = curr_env.get_state_1d(state2D)
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.env.getActionSize())]
 
         if temp == 0:
@@ -68,7 +63,7 @@ class MCTS():
 
         # possibly replace all self.env with curr_env? to get rid of the calling step thing.
         # also add in more prints...
-        s = curr_env.get1Dstate(state2D)
+        s = curr_env.get_state_1d(state2D)
 
         # ---------------- TERMINAL STATE ---------------
         if done:
@@ -95,7 +90,7 @@ class MCTS():
         # ------------- GET BEST ACTION -----------------------------
         # search through the valid actions and update the UCB for all actions then update best actions
         # pick the action with the highest upper confidence bound
-        for a in range(self.env.getActionSize()):
+        for a in range(self.env.get_action_size()):
             if (s, a) in self.Qsa:
                 u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
                             1 + self.Nsa[(s, a)])
@@ -109,7 +104,7 @@ class MCTS():
 
         # ----------- RECURSION TO NEXT STATE ------------------------
         observation, reward, next_done, _ = curr_env.step(a)
-        next_s = curr_env.get2Dstate(observation, state2D)
+        next_s = curr_env.get_state_2d(observation, state2D)
         v = self.search(next_s, curr_env, next_done)
 
         # ------------ BACKUP Q-VALUES AND N-VISITED -----------------

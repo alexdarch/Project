@@ -7,7 +7,7 @@ import torch
 
 args = dotdict({
     # ---------- POLICY ITER ARGS -----------
-    'numIters': 10,
+    'policyIters': 10,
     'numEps': 10,
     'tempThreshold': 15,
     'updateThreshold': 0.6,
@@ -15,27 +15,25 @@ args = dotdict({
     'numMCTSSims': 25,
     'arenaCompare': 40,
     'cpuct': 1,
-    'num_channels': 128,
-    'dropout': 0.3,
     'checkpoint': './temp/',
     'load_model': False,
     'load_folder_file': ('/dev/models/8x100x50', 'best.pth.tar'),
-    'numItersForTrainExamplesHistory': 20,
+    'policyItersForTrainExamplesHistory': 20,
 })
 
 if __name__ == "__main__":
-    base_env = gym.make("CartPole-v1")
-    env = CartPoleWrapper(base_env)
-    nnet = nn(env, args)
+    env = CartPoleWrapper()   # equivalent to gym.make("CartPole-v1")
+    print("Beyond Done: ", env.steps_beyond_done)
+    nnet = nn(env)
 
     # if args.load_model:
     #     nnet.load_checkpoint(args.load_folder_file[0], args.load_folder_file[1])
 
-    # c = Controller(env, nnet, args)
+    c = Controller(env, nnet, args)
     # if args.load_model:
     #     print("Load trainExamples from file")
     #     c.loadTrainExamples()
 
     print("Loaded Correctly")
-    # c.policyIteration()
+    c.policy_iteration()
 

@@ -18,34 +18,32 @@ pargs = dotdict({
     # ---------- Policy args ------------
     'lr': 0.001,
     'dropout': 0.3,
-    'epochs': 10,
+    'epochs': 1,
     'batch_size': 64,
-    'cuda': False,  # torch.cuda.is_available(),
+    'cuda': False, #torch.cuda.is_available(),
     'num_channels': 512,
+    'pareto': 1,
 })
 
 
-class NeuralNet(nn.Module):
+class NetworkArchitecture(nn.Module):
     """
     This class specifies the base NeuralNet class. To define your own neural
     network, subclass this class and implement the functions below. The neural
     network does not consider the current player, and instead only deals with
     the canonical form of the board.
-
-    See othello/NNet.py for an example implementation.
     """
 
-    def __init__(self, policy_env, args):
+    def __init__(self, policy_env):
 
-        self.x_size, self.y_size = policy_env.get2DstateSize()
-        self.action_size = policy_env.getActionSize()
-        self.args = args
-        self.pareto = 1
+        self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
+        self.action_size = policy_env.get_action_size()  # only two calls here
+        self.pareto = 0.1
 
         # torch.cuda.init()   # initialise gpu? necessary?
         print(torch.cuda.get_device_name(0))
 
-        super(NeuralNet, self).__init__()
+        super(NetworkArchitecture, self).__init__()
         self.conv1 = nn.Conv2d(1, pargs.num_channels, 3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(pargs.num_channels, pargs.num_channels, 3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(pargs.num_channels, pargs.num_channels, 3, stride=1)
@@ -83,6 +81,18 @@ class NeuralNet(nn.Module):
 
         return F.log_softmax(pi, dim=1), torch.tanh(v)
 
+
+class NeuralNet(NetworkArchitecture):
+    def __init__(self, policy_env):
+
+        super(NetworkArchitecture, self).__init__() # won't work without this? but dont know why its neeeded? order of inheritance?
+        self.architecture = NetworkArchitecture(policy_env) # pargs is a global variable so no need to pass in
+        self.x_size, self.y_size = policy_env.get_state_2d_size()
+        self.action_size = policy_env.get_action_size()
+
+        if pargs.cuda:
+            self.architecture.cuda()
+
     def train_policy(self, examples):
         """
         This function trains the neural network with examples obtained from
@@ -94,46 +104,50 @@ class NeuralNet(nn.Module):
                       the given board, and v is its value. The examples has
                       board in its canonical form.
         """
-        optimizer = optim.Adam(self.parameters())
+        optimizer = optim.Adam(self.architecture.parameters())
 
         for epoch in range(pargs.epochs):
             print('EPOCH ::: ' + str(epoch+1))
-            self.train()    # set module in training mode
+            self.architecture.train()    # set module in training mode
             batch_idx = 0
             accuracy = []
 
             while batch_idx < int(len(examples)/pargs.batch_size):
-                # -------- GET BATCHES -----------
-                # randomise the batches
+                # --------------- GET BATCHES -------------------
+                # randomise the batches (weird that this is done for each batch?
+                # why not take first 64 fom pre randomised batch etc)
                 sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
                 states2D, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
-                #convert to torch tensors
+                # convert to torch tensors
                 states2D = torch.FloatTensor(np.array(states2D).astype(np.float64))
                 target_pis = torch.FloatTensor(np.array(pis))
                 target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
 
                 # -------------- FEED FORWARD -------------------
                 if pargs.cuda:
+                    print("Using Graphs Card!!!")
                     states2D, target_pis, target_vs = states2D.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
                 states2D, target_pis, target_vs = Variable(states2D), Variable(target_pis), Variable(target_vs)
 
-                # ------------- COMPUTE LOSSES --------------
-                out_pi, out_v = self.forward(states2D)
-                a_loss = self.loss_pi(target_pis, out_pi) * self.pareto
+                # -------------- COMPUTE LOSSES -----------------
+                out_pi, out_v = self.architecture.forward(states2D)
+                a_loss = self.loss_pi(target_pis, out_pi) * pargs.pareto
                 v_loss = self.loss_v(target_vs, out_v)
                 total_loss = a_loss + v_loss
 
-                batch_NumWrong = torch.abs(torch.argmax(out_pi, dim=1) - out_pi).sum()
-
-                # ---------- COMPUTE GRADS AND BACKPROP ------------
+                # ---------- COMPUTE GRADS AND BACK-PROP ------------
                 optimizer.zero_grad()
                 total_loss.backward()
                 optimizer.step()
 
-                # --------- PRINT STATS --------------
+                # ------------ RECORD STATS ----------------
                 # Get array of predicted actions and compare with target actions to compute accuracy
+                greedy_actions, target_actions = torch.argmax(out_pi, dim=1), torch.argmax(target_pis, dim=1)
+                batch_numWrong = torch.abs(greedy_actions - target_actions).sum()
+                accuracy.append(1 - (batch_numWrong.cpu().detach().numpy()) / pargs.batch_size)  # counts the different ones
+                batch_idx += 1
 
-                accuracy.append(1 - (batch_NumWrong.detach().numpy()) / pargs.batch_size)  # counts the different ones
+                # --------- PRINT STATS --------------
                 if batch_idx % 8 == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tA-Loss: {:.4f}, V-Loss: {:.4f}\tAccuracy: {:.5f}'.format(
                         epoch + 1,
@@ -145,7 +159,6 @@ class NeuralNet(nn.Module):
                         accuracy[batch_idx - 1])
                     )
 
-    @torch.no_grad()  # should wrap function in this?
     def predict(self, state_2D):
         """
         Input:
@@ -161,18 +174,12 @@ class NeuralNet(nn.Module):
         if pargs.cuda:
             state = state.contiguous().cuda()
 
-        # or instead of the decorator use this ?:
-        # with torch.no_grad():
-        #   state = state.view...
-        #   self.eval()
-        #   pi, v = self.forward(state)
-
         # state = Variable(state, volatile=True)
         state = state.view(1, self.x_size, self.x_size)
 
         # print(type(state))
-        self.eval()
-        pi, v = self.forward(state)
+        self.architecture.eval()
+        pi, v = self.architecture.forward(state)
         return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
     def loss_pi(self, targets, outputs):
