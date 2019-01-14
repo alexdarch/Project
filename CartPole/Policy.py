@@ -1,4 +1,5 @@
 from utils import *
+import time
 import numpy as np
 import torch
 import torch.nn as nn
@@ -106,9 +107,8 @@ class NeuralNet(NetworkArchitecture):
         optimizer = optim.Adam(self.architecture.parameters())
 
         for epoch in range(pargs.epochs):
-            print('EPOCH ::: ' + str(epoch+1))
             self.architecture.train()    # set module in training mode
-            batch_idx = 0
+            batch_idx, start = 0, time.time()
             accuracy = []
 
             while batch_idx < int(len(examples)/pargs.batch_size):
@@ -146,6 +146,10 @@ class NeuralNet(NetworkArchitecture):
                 accuracy.append(1 - (batch_numWrong.cpu().detach().numpy()) / pargs.batch_size)  # counts the different ones
                 batch_idx += 1
 
+                Utils.update_progress(
+                    "TRAINING, EPOCH " + str(epoch + 1) + "/" + str(pargs.epochs) + ". PROGRESS OF " + str(
+                        int(len(examples) / pargs.batch_size)) + " BATCHES",
+                    batch_idx / int(len(examples) / pargs.batch_size), time.time() - start)
                 # --------- PRINT STATS --------------
                 if batch_idx % 8 == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tA-Loss: {:.4f}, V-Loss: {:.4f}\tAccuracy: {:.5f}'.format(
@@ -157,6 +161,8 @@ class NeuralNet(NetworkArchitecture):
                         v_loss,
                         accuracy[batch_idx - 1])
                     )
+            if pargs.epochs != epoch:
+                print("\n")  # print epoch training on a new line
 
     def predict(self, state_2D):
         """

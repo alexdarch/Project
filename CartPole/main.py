@@ -12,7 +12,7 @@ args = Utils({
     'updateThreshold': 0.6,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 25,
-    'arenaCompare': 40,
+    'testIters': 10,
     'cpuct': 1,
     'checkpoint': './temp/',
     'load_model': False,
@@ -32,6 +32,6 @@ if __name__ == "__main__":
     #     print("Load trainExamples from file")
     #     c.loadTrainExamples()
 
-    print("Loaded Correctly")
+    print("Loaded Correctly\n")
     c.policy_iteration()
 

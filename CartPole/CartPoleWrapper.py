@@ -20,7 +20,7 @@ class CartPoleWrapper(CartPoleEnv):
         self.pos_size = 20
         self.ang_size = 20
         self.steps_beyond_done = 16  # remember to change reset too
-        self.pareto = self.x_threshold / self.theta_threshold_radians  # normalise so that x and theta are of the same magnitude
+        self.pareto = (self.x_threshold / self.theta_threshold_radians)**2  # normalise so that x and theta are of the same magnitude
 
     def step(self, action):
         observation, reward, done, info = super().step(action)
