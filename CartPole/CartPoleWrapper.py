@@ -1,6 +1,7 @@
 from gym.envs.classic_control import CartPoleEnv  # CartPoleEnv is a module, not an attribute -> can't indirectly import
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import norm
 
 
 # Ought to rewrite so that state2D and state1D are attributes? Maybe consider using getter/setter methods
@@ -24,6 +25,7 @@ class CartPoleWrapper(CartPoleEnv):
         super().__init__()
         # self._max_steps = env.spec.max_episode_steps
         self.discount = 0.7
+        self.mcts_bins = 25
         self.pos_size = 20
         self.ang_size = 20
         self.steps_beyond_done = 16  # remember to change reset too
@@ -88,13 +90,15 @@ class CartPoleWrapper(CartPoleEnv):
         return self.state
 
     def get_rounded_observation(self):
-        obs = (int(round(self.state[0]*100)),
-               int(round(self.state[1]*100)),
-               int(round(self.state[2]*100)),
-               int(round(self.state[3]*100))
-               )
-        return obs
-
+        # get the values to be roughly within +-1
+        obs = [self.state[0]/self.x_threshold,
+               self.state[1]/self.x_threshold,
+               self.state[2]/self.theta_threshold_radians,
+               self.state[3]/self.theta_threshold_radians
+               ]
+        obs = norm.cdf(obs, scale=1/3)  # want +-1 to lie on the +-3std point -> scale down by 1/3
+        obs = np.round(obs * self.mcts_bins)  # norm.cdf returns a numpy array so use that to round
+        return tuple(obs.astype(int).tolist())  # convert to tuple of integers for comparison
 
     def get_action_size(self):  # only works for discrete actions need to update!
         x = 0

@@ -11,7 +11,7 @@ args = Utils({
     'tempThreshold': 15,
     'updateThreshold': 0.95,
     'maxlenOfQueue': 200000,
-    'numMCTSSims': 25,
+    'numMCTSSims': 8,
     'testIters': 10,
     'cpuct': 1,
     'checkpoint': './temp/',
