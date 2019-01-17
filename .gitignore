@@ -3,9 +3,9 @@
 */__pycache__
 AlphaZero_Implementation
 Orthello
-*.pdf
+Papers
 *.pickle
-OpenAIGym/.ipynb_checkpoints
+*.ipynb_checkpoints
 Cartpole/.idea
 Cartpole/__pycache__
 Figures
@@ -17,3 +17,6 @@ Figures
 *.png
 *.log
 *.fdb_latexmk
+*.bbl
+*.bib
+*.blg

@@ -1,6 +1,7 @@
 from collections import deque
 from MCTS import MCTS
 import numpy as np
+import matplotlib.pyplot as plt
 from random import shuffle
 from Policy import NeuralNet
 from utils import *
@@ -16,7 +17,6 @@ class Controller:
 
     def __init__(self, env, nnet, args):
         self.env = env
-        self.steps_beyond_done = self.env.steps_beyond_done
         self.nnet = nnet
         self.challenger_nnet = self.nnet.__class__(env)  # the competitor network
         self.args = args
@@ -24,14 +24,21 @@ class Controller:
         self.trainExamplesHistory = []  # history of examples from args.policyItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
 
+        # ------- CONSTS AFFECTING THE VALUE FUNCTION ----------
+        self.steps_beyond_done = self.env.steps_beyond_done
+        self.final_discount = 1.0/20    # we want to reduce the discount factor to 1/20 of the first value by the end
+        self.discount_factor = self.final_discount ** (1/(self.steps_beyond_done - 1))
+        self.discount_sum = (1-self.final_discount * self.discount_factor)/(1-self.discount_factor)  # to normalise
+
     def execute_episode(self):
+
         """
         This function executes one episode of self-play, starting with player 1. As the game is played, each turn
         is added as a training example to trainExamples. The game is played till the game ends. After the game
         ends, the outcome of the game is used to assign values to each example in trainExamples.
         It uses a temp=1 if episodeStep < tempThreshold, and thereafter uses temp=0.
         Returns:
-            trainExamples: a list of examples of the form (canonicalBoard, pi, v). pi is the MCTS informed policy
+            trainExamples: a list of examples of the form (state_2d, pi, v). pi is the MCTS informed policy
                             vector, v is +1 if the player eventually won the game, else -1.
         """
         example, losses = [], []
@@ -45,14 +52,14 @@ class Controller:
 
             # ---------- GET PROBABILITIES FOR EACH ACTION --------------
             temp = int(episode_step < self.args.tempThreshold)  # temperature = 0 if first step, 1 otherwise
-            # pi = self.mcts.getActionProb(state2D, self.env, temp=temp) # MCTS improved policy
-            pi, v = self.nnet.predict(state_2d)  # Standard nnet predicted policy (for now)
+            pi = self.mcts.get_action_prob(state_2d, self.env, temp=temp)  # MCTS improved policy
+            # pi, v = self.nnet.predict(state_2d)  # Standard nnet predicted policy (for now)
 
             # ---------- TAKE NEXT STEP PROBABILISTICALLY ---------------
             action = np.random.choice(len(pi), p=pi)  # take a random choice with pi probability for each action
             observation, loss, done, info = self.env.step(action)
 
-            pi = self.env.get_action(action)  # DELETE WHEN USING MCTS (converts action to [1, 0] or [0, 1] form)
+            # pi = self.env.get_action(action)  # DELETE WHEN USING MCTS (converts action to [1, 0] or [0, 1] form)
             # print("ACTION PROB: ", pi, "\t\tACTION TAKEN: ", action)
 
             # ---------------------- RECORD STEP ------------------------
@@ -65,8 +72,8 @@ class Controller:
         # ------------------ DO N STEPS AFTER DONE ----------------------
         for extra_steps in range(self.steps_beyond_done):
             state_2d = self.env.get_state_2d(observation, state_2d)
-            # pi = self.mcts.getActionProb(state2D, self.env, temp=temp) # MCTS improved policy
-            pi, v = self.nnet.predict(state_2d)  # Standard nnet predicted policy (for now)
+            pi = self.mcts.get_action_prob(state_2d, self.env, temp=temp)  # MCTS improved policy
+            #  pi, v = self.nnet.predict(state_2d)  # Standard nnet predicted policy (for now)
 
             action = np.random.choice(len(pi), p=pi)  # take a random choice with pi probability for each action
             observation, loss, done, info = self.env.step(action)
@@ -77,7 +84,7 @@ class Controller:
         example = [s_a + [v] for s_a, v in zip(example, values)]
         return example
 
-    def greedy_episode(self, g_mcts, neural_net):
+    def greedy_episode(self, g_mcts):
         # No self play yet!!
         losses = []
         observation, done = self.env.reset(), False
@@ -86,26 +93,25 @@ class Controller:
         while not done:
             state_2d = self.env.get_state_2d(observation, state_2d)
 
-            # ---------- GET PROBABILITIES FOR EACH ACTION --------------
-            # pi = g_mcts.getActionProb(state2D, self.env, temp=0) # MCTS improved policy
-            pi, v = neural_net.predict(state_2d)  # Standard nnet predicted policy (for now)
+            # ------------- GET PROBABILITIES FOR EACH ACTION --------------
+            pi = g_mcts.get_action_prob(state_2d, self.env, temp=0)  # MCTS improved policy
+            # pi, v = neural_net.predict(state_2d)  # Standard nnet predicted policy (for now)
 
-            # ---------- TAKE NEXT STEP PROBABILISTICALLY ---------------
+            # ---------- TAKE NEXT STEP GREEDILY AND SAVE DATA--------------
             action = np.argmax(pi)
             observation, loss, done, info = self.env.step(action)
             losses.append(loss)
 
-        return np.mean(losses), np.median(losses)
+        return losses
 
-    def value_function(self, losses):
+    def value_function(self, losses: list) -> list:
         values = []
         for step_idx in range(len(losses) - self.steps_beyond_done):
-            beta, change = 1.0, 1.0/self.steps_beyond_done
-            value = 0
+            value, discount = 0, 1
             for i in range(step_idx+1, step_idx+self.steps_beyond_done):
-                value += beta*losses[i]
-                beta -= change
-            values.append(value)
+                value += discount*losses[i]
+                discount *= self.discount_factor
+            values.append(value/self.discount_sum)
         return values
 
     def policy_iteration(self):
@@ -129,8 +135,8 @@ class Controller:
                     policy_examples += self.execute_episode()
 
                     # bookkeeping + plot progress
-                    eps_time = time.time() - start
-                    Utils.update_progress("EXECUTING EPISODES UNDER POLICY ITER "+str(i+1), eps/self.args.numEps, eps_time)
+                    Utils.update_progress("EXECUTING EPISODES UNDER POLICY ITER "+str(i+1), eps/self.args.numEps,
+                                          time.time() - start)
 
                 # self.trainExamplesHistory.append(policy_examples)  # save all examples
 
@@ -139,9 +145,9 @@ class Controller:
             self.challenger_nnet.train_policy(examples=policy_examples)  # should shuffle examples before training
 
             # ------------------------- COMPARE POLICIES AND UPDATE ---------------------------------
-            update, new_tot_mean, new_tot_median = self.policy_improvement()
+            update = self.policy_improvement()
             if update:
-                print("ACCEPTING NEW MODEL WITH MEAN: ", new_tot_mean, "\tMEDIAN: ", new_tot_median, "\n")
+                # print("ACCEPTING NEW MODEL WITH MEAN: ", new_tot_mean, "\tMEDIAN: ", new_tot_median, "\n")
                 self.nnet = self.challenger_nnet
                 # save checkpoint?
             else:
@@ -154,30 +160,66 @@ class Controller:
         returns: update = True/False depending on whether some condition is met.
         """
         update = False
-        curr_means, curr_medians = [], []
-        chal_means, chal_medians = [], []
+        curr_losses, chal_losses = [], []
         start = time.time()
         for n in range(1, self.args.testIters+1):
             # ---- Play an episode with the current policy ----
             curr_mcts = MCTS(self.env, self.nnet, self.args)  # reset mcts tree for each episode
-            curr_mean, curr_median = self.greedy_episode(curr_mcts, self.nnet)
-            curr_means.append(curr_mean)
-            curr_medians.append(curr_median)
+            episode_curr_losses = self.greedy_episode(curr_mcts)
+            curr_losses.extend(episode_curr_losses)
 
             # ---- Play an episode with challenger policy ----
-            chal_mcts = MCTS(self.env, self.nnet, self.args)
-            chal_mean, chal_median = self.greedy_episode(chal_mcts, self.challenger_nnet)
-            chal_means.append(chal_mean)
-            chal_medians.append(chal_median)
+            chal_mcts = MCTS(self.env, self.challenger_nnet, self.args)
+            episode_chal_losses = self.greedy_episode(chal_mcts)
+            chal_losses.extend(episode_chal_losses)
 
             # progress
             Utils.update_progress("GREEDY POLICIES EXECUTION, ep"+str(n),
                                   n / self.args.testIters, time.time() - start)
 
-        # ---------- COMPARE NEURAL NETS AND DETERMINE WHETHER TO UPDATE -----------
-        ret_sum_mean, ret_sum_medians = sum(curr_means), sum(curr_medians)
-        if sum(chal_means) > ret_sum_mean and sum(chal_medians) > ret_sum_medians:
-            ret_sum_mean, ret_sum_medians = sum(chal_means), sum(chal_medians)
-            update = True
+        # print(chal_losses)
+        # print(curr_losses)
+        # # -------- CALCULATE GAUSSIAN DISTRIBUTIONS FOR CURRENT AND CHALLENGER LOSSES -------------
+        # # means and variances
+        # curr_mean, curr_variance = np.mean(curr_losses), np.var(curr_losses)
+        # chal_mean, chal_variance = np.mean(chal_losses), np.var(chal_losses)
+        #
+        # third_std = 4*max(np.sqrt(chal_variance), np.sqrt(curr_variance))   # calculate 4 standard deviations
+        # avg_mean = np.mean([curr_mean, chal_mean])  # and a roughly average centre
+        # # just want a range that roughly covers 4 standard deviations around the means (which are about equal usually)
+        # x_range = np.linspace(avg_mean - third_std, avg_mean + third_std, 200)
+        #
+        # # calculate a y=x^2 transformed normal pdf over the losses of each
+        # curr_y = np.exp(-0.5 * (x_range-curr_mean)**2 / curr_variance) / np.sqrt(2*curr_variance*np.pi)
+        # chal_y = np.exp(-0.5 * (x_range-chal_mean)**2 / chal_variance) / np.sqrt(2*chal_variance*np.pi)
+        #
+        # # -------------- CALCULATE p(X-Y > 0) DIFFERENCE OF GAUSSIANS --------------
+        # # # Calculate difference of gaussians stats (mode == mean for gaussians)
+        # diff_mean, diff_variance = curr_mean - chal_mean, np.sqrt(curr_variance + chal_variance)
+        # x_difference = np.linspace(diff_mean-3*np.sqrt(diff_variance), diff_mean+3*np.sqrt(diff_variance), 200)
+        # y_difference = np.exp(-0.5*(x_difference-diff_mean)**2/diff_variance)/np.sqrt(abs(x_difference)*2*diff_variance*np.pi)
+        # zero_idx = (np.abs(x_difference - 0)).argmin()  # find the index where x=0 (or closest to)
+        # prob_chal_greater_than_curr = np.trapz(y_difference[zero_idx:], x_difference[zero_idx:])
+        #
+        # plt.plot(x_range, curr_y)
+        # plt.plot(x_range, chal_y)
+        # plt.legend(["current policy", "challenger policy"])
+        # plt.gca().set_prop_cycle(None)  # reset the colour cycles
+        # plt.hist(curr_losses, bins=20, density=True, alpha=0.3)
+        # plt.hist(chal_losses, bins=20, density=True, alpha=0.3)
+        #
+        # plt.plot(x_difference, y_difference)
+        # plt.show()
+        # print("prob_chal_greater_than_curr: ", prob_chal_greater_than_curr)
 
-        return update, ret_sum_mean, ret_sum_medians
+
+        # ---------- COMPARE NEURAL NETS AND DETERMINE WHETHER TO UPDATE -----------
+
+        # means are -ve, we want the number closest to zero -> chal > curr. Multiplying by 0.95 gets curr -> 0, so better
+        if np.mean(chal_losses) > 0.95*np.mean(curr_losses):
+            update = True
+            print("UPDATING NEW POLICY FROM MEAN = ", np.mean(curr_losses), "\t TO MEAN = ", np.mean(chal_losses))
+        else:
+            print("REJECTING NEW POLICY WITH MEAN = ", np.mean(chal_losses), "\t AS THE CURRENT MEAN IS = ", np.mean(curr_losses))
+
+        return update

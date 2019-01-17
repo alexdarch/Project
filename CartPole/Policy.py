@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
+import csv
 
 # import sys, os, shutil
 # import random, math, time
@@ -19,10 +20,10 @@ pargs = Utils({
     'lr': 0.001,
     'dropout': 0.3,
     'epochs': 1,
-    'batch_size': 64,
+    'batch_size': 4,
     'cuda': False, #torch.cuda.is_available(),
     'num_channels': 512,
-    'pareto': 1,
+    'pareto': 0.5,  # multiply action loss
 })
 
 
@@ -83,10 +84,12 @@ class NetworkArchitecture(nn.Module):
 
 
 class NeuralNet(NetworkArchitecture):
+    trains = 0  # count the number of times train_policy is called so we can write csv's
+
     def __init__(self, policy_env):
 
-        super(NetworkArchitecture, self).__init__() # won't work without this? but dont know why its neeeded? order of inheritance?
-        self.architecture = NetworkArchitecture(policy_env) # pargs is a global variable so no need to pass in
+        super(NetworkArchitecture, self).__init__()  # won't work without this? but dont know why its neeeded? order of inheritance?
+        self.architecture = NetworkArchitecture(policy_env)  # pargs is a global variable so no need to pass in
         self.x_size, self.y_size = policy_env.get_state_2d_size()
         self.action_size = policy_env.get_action_size()
 
@@ -105,77 +108,89 @@ class NeuralNet(NetworkArchitecture):
                       board in its canonical form.
         """
         optimizer = optim.Adam(self.architecture.parameters())
+        a_losses, v_losses, tot_losses = [], [], []
 
         for epoch in range(pargs.epochs):
             self.architecture.train()    # set module in training mode
             batch_idx, start = 0, time.time()
-            accuracy = []
 
             while batch_idx < int(len(examples)/pargs.batch_size):
                 # --------------- GET BATCHES -------------------
                 # randomise the batches (weird that this is done for each batch?
                 # why not take first 64 fom pre randomised batch etc)
                 sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
-                states2D, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
+                states_2d, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
                 # convert to torch tensors
-                states2D = torch.FloatTensor(np.array(states2D).astype(np.float64))
+                states_2d = torch.FloatTensor(np.array(states_2d).astype(np.float64))
                 target_pis = torch.FloatTensor(np.array(pis))
                 target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
 
                 # -------------- FEED FORWARD -------------------
                 if pargs.cuda:
                     print("Using Graphs Card!!!")
-                    states2D, target_pis, target_vs = states2D.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
-                states2D, target_pis, target_vs = Variable(states2D), Variable(target_pis), Variable(target_vs)
+                    states_2d, target_pis, target_vs = states_2d.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
+                states_2d, target_pis, target_vs = Variable(states_2d), Variable(target_pis), Variable(target_vs)
 
                 # -------------- COMPUTE LOSSES -----------------
-                out_pi, out_v = self.architecture.forward(states2D)
+                out_pi, out_v = self.architecture.forward(states_2d)
                 a_loss = self.loss_pi(target_pis, out_pi) * pargs.pareto
                 v_loss = self.loss_v(target_vs, out_v)
                 total_loss = a_loss + v_loss
+
+                # store losses for writing to file
+                a_losses.append(a_loss.detach().numpy().tolist())  # if extend: 'float' object is not iterable
+                v_losses.append(v_loss.detach().numpy().tolist())
+                tot_losses.append(total_loss.detach().numpy().tolist())
 
                 # ---------- COMPUTE GRADS AND BACK-PROP ------------
                 optimizer.zero_grad()
                 total_loss.backward()
                 optimizer.step()
 
-                # ------------ RECORD STATS ----------------
+                # ------------ TRACK PROGRESS ----------------
                 # Get array of predicted actions and compare with target actions to compute accuracy
-                greedy_actions, target_actions = torch.argmax(out_pi, dim=1), torch.argmax(target_pis, dim=1)
-                batch_numWrong = torch.abs(greedy_actions - target_actions).sum()
-                accuracy.append(1 - (batch_numWrong.cpu().detach().numpy()) / pargs.batch_size)  # counts the different ones
                 batch_idx += 1
-
                 Utils.update_progress(
                     "TRAINING, EPOCH " + str(epoch + 1) + "/" + str(pargs.epochs) + ". PROGRESS OF " + str(
                         int(len(examples) / pargs.batch_size)) + " BATCHES",
                     batch_idx / int(len(examples) / pargs.batch_size), time.time() - start)
                 # --------- PRINT STATS --------------
-                if batch_idx % 8 == 0:
-                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tA-Loss: {:.4f}, V-Loss: {:.4f}\tAccuracy: {:.5f}'.format(
-                        epoch + 1,
-                        batch_idx * pargs.batch_size,
-                        states2D.size()[0],
-                        100 * batch_idx * pargs.batch_size / states2D.size()[0],
-                        a_loss,
-                        v_loss,
-                        accuracy[batch_idx - 1])
-                    )
-            if pargs.epochs != epoch:
+                # if batch_idx % 8 == 0:
+                #     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tA-Loss: {:.4f}, V-Loss: {:.4f}\tAccuracy: {:.5f}'.format(
+                #         epoch + 1,
+                #         batch_idx * pargs.batch_size,
+                #         states_2d.size()[0],
+                #         100 * batch_idx * pargs.batch_size / states_2d.size()[0],
+                #         a_loss,
+                #         v_loss,
+                #         accuracy[batch_idx - 1])
+                #     )
+            if epoch+1 < pargs.epochs:
                 print("\n")  # print epoch training on a new line
 
-    def predict(self, state_2D):
+        # record to CSV file
+        print("Action Losses: ", a_losses)
+        print("Value Losses: ", v_losses)
+        print("tot_losses: ", tot_losses)
+
+        NeuralNet.trains += 1
+        losses = [x for x in zip(a_losses, v_losses, tot_losses)]
+        with open('ActionAndValueLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerows(losses)
+
+    def predict(self, state_2d):
         """
         Input:
             board: current board in its canonical form.
 
         Returns:
             pi: a policy vector for the current board- a numpy array of length
-                game.getActionSize
+                env.get_action_size
             v: a float in [-1,1] that gives the value of the current board
         """
         # preparing input
-        state = torch.FloatTensor(state_2D.astype(np.float64))
+        state = torch.FloatTensor(state_2d.astype(np.float64))
         if pargs.cuda:
             state = state.contiguous().cuda()
 

@@ -3,14 +3,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-# Ought to rewrite so that state2D and state1D are attributes?
-# would need to change get2Dstate to just age getter & update step & reset. Move calculation 2D to a different method
-# Also should change state2D and get2Dstate so they match
+# Ought to rewrite so that state2D and state1D are attributes? Maybe consider using getter/setter methods
 class CartPoleWrapper(CartPoleEnv):
     """
-    This wrapper adds:
-      - 'reached_goal' property, where goal is to keep the cartpole upright for 200 steps.
-      - 'reset' functionality to be able to set the start state
+    This wrapper changes/adds:
+      - 'steps_beyond_done' now can go any number of steps beyond done (for calculating state values)
+      - 'step' now returns a loss equivalent to the squared error of position
+      - 'state_loss' returns the loss for the state for use in 'step'
+      - 'reset' functionality to be able to set the start state by passing [x_pos, x_vel, angle, ang_vel]
+
+      - 'get_state_2d' converts an observation into a 2D state representation, taking into account previous states
+      - 'print_state_2d' shows an image of the 2D state
+      - 'get_state_1d' converts state_2d into a 1d representation so the MCTS can store it
+
+      - 'get_action' (redundant) converts an action of 1 / 0 to a list: [0, 1] or [1, 0]
+      - 'get_state_2d_size', 'get_action_size', 'get_observation', 'get_state_2d_size' are obvious
     """
 
     def __init__(self):
@@ -36,9 +43,11 @@ class CartPoleWrapper(CartPoleEnv):
         return self.state
 
     def get_state_2d(self, curr_state, prev_state_2d=None):
-        # curr_state numpy array [x_pos, x_vel, angle, ang_vel]
-        #  even though it says state[3] = tip_vel in the docs, its actually vel
-        # max values are:        [+-2.4, inf, +-12 = +-0.21rad, inf]
+        """
+        curr_state numpy array [x_pos, x_vel, angle, ang_vel]
+        even though it says state[3] = tip_vel in the docs, its actually ang_vel (since length = 1)
+        max values are:        [+-2.4, inf, +-12 = +-0.21rad, inf]
+        """
         pos_edges = np.linspace(-self.x_threshold, self.x_threshold, self.pos_size + 1)
         ang_edges = np.linspace(-self.theta_threshold_radians, self.theta_threshold_radians, self.ang_size + 1)
         new_pos, _, _ = np.histogram2d([curr_state[2], ], [curr_state[0], ], bins=(ang_edges, pos_edges))
@@ -51,7 +60,15 @@ class CartPoleWrapper(CartPoleEnv):
 
     def state_loss(self):
         # change the reward to -(x^2+theta^2). Technically a loss now
-        return -self.state[0] ** 2 - self.pareto * self.state[2] ** 2
+        done = abs(self.state[0]) > self.x_threshold or abs(self.state[2]) > self.theta_threshold_radians
+        # g = np.random.randint(0, high=2)
+        # if g == 0:
+        #     g = -1
+        if done:
+            return -1   # -1 is the maximum loss possible
+
+        return -0.5*((self.state[0]/self.x_threshold) ** 2 + (self.state[2]/self.theta_threshold_radians) ** 2)
+        # return -0.5 * ((self.state[0] / self.x_threshold) + (self.state[2] / self.theta_threshold_radians))
 
     @staticmethod
     def get_state_1d(state_2d):
@@ -79,7 +96,7 @@ class CartPoleWrapper(CartPoleEnv):
     def get_state_2d_size(self):
         return self.pos_size, self.ang_size
 
-    def print_state(self, state_2d):
+    def print_state_2d(self, state_2d):
         plt.imshow(state_2d, extent=[-self.x_threshold, self.x_threshold, -self.theta_threshold_radians,
                                      self.theta_threshold_radians], cmap='jet', aspect='auto')
         plt.xlabel("X-Position")
