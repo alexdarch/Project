@@ -9,7 +9,7 @@ args = Utils({
     'policyIters': 10,
     'numEps': 10,
     'tempThreshold': 15,
-    'updateThreshold': 0.6,
+    'updateThreshold': 0.95,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 25,
     'testIters': 10,

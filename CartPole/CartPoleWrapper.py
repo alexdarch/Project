@@ -87,6 +87,15 @@ class CartPoleWrapper(CartPoleEnv):
     def get_observation(self):
         return self.state
 
+    def get_rounded_observation(self):
+        obs = (int(round(self.state[0]*100)),
+               int(round(self.state[1]*100)),
+               int(round(self.state[2]*100)),
+               int(round(self.state[3]*100))
+               )
+        return obs
+
+
     def get_action_size(self):  # only works for discrete actions need to update!
         x = 0
         while self.action_space.contains(x):

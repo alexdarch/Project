@@ -20,7 +20,7 @@ pargs = Utils({
     'lr': 0.001,
     'dropout': 0.3,
     'epochs': 2,
-    'batch_size': 2,
+    'batch_size': 8,
     'cuda': False, #torch.cuda.is_available(),
     'num_channels': 512,  # 512
     'pareto': 0.4,  # multiply action loss

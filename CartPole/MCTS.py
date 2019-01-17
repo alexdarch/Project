@@ -31,7 +31,8 @@ class MCTS():
             curr_env.reset(observation)
             self.search(state_2d, curr_env, done=False)
 
-        s = curr_env.get_state_1d(state_2d)
+        curr_env.reset(observation)
+        s = curr_env.get_rounded_observation()
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.env.get_action_size())]
 
         if temp == 0:
@@ -60,7 +61,7 @@ class MCTS():
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
-        s = curr_env.get_state_1d(state_2d)
+        s = curr_env.get_rounded_observation()
 
         # ---------------- TERMINAL STATE ---------------
         if done:

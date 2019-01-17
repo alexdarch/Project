@@ -229,7 +229,7 @@ class Controller:
         # ---------- COMPARE NEURAL NETS AND DETERMINE WHETHER TO UPDATE -----------
 
         # means are -ve, we want the number closest to zero -> chal > curr. Multiplying by 0.95 gets curr -> 0, so better
-        if np.mean(chal_losses) > 0.95*np.mean(curr_losses):
+        if np.mean(chal_losses) > self.args.updateThreshold*np.mean(curr_losses):
             update = True
             print("UPDATING NEW POLICY FROM MEAN = ", np.mean(curr_losses), "\t TO MEAN = ", np.mean(chal_losses))
         else:
