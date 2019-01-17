@@ -1,11 +1,12 @@
-from collections import deque
 from MCTS import MCTS
 import numpy as np
-import matplotlib.pyplot as plt
-from random import shuffle
 from Policy import NeuralNet
 from utils import *
 import time
+import csv
+# from collections import deque
+# import matplotlib.pyplot as plt
+# from random import shuffle
 # from pickle import Pickler, Unpickler
 
 
@@ -14,6 +15,7 @@ class Controller:
     This class executes the self-play + learning. It uses the functions defined
     in the environment class and NeuralNet. args are specified in main.py.
     """
+    improvements = 0
 
     def __init__(self, env, nnet, args):
         self.env = env
@@ -161,21 +163,32 @@ class Controller:
         """
         update = False
         curr_losses, chal_losses = [], []
+        curr_csv, chal_csv = [], []
         start = time.time()
         for n in range(1, self.args.testIters+1):
             # ---- Play an episode with the current policy ----
             curr_mcts = MCTS(self.env, self.nnet, self.args)  # reset mcts tree for each episode
             episode_curr_losses = self.greedy_episode(curr_mcts)
             curr_losses.extend(episode_curr_losses)
+            curr_csv.append(episode_curr_losses)
 
             # ---- Play an episode with challenger policy ----
             chal_mcts = MCTS(self.env, self.challenger_nnet, self.args)
             episode_chal_losses = self.greedy_episode(chal_mcts)
             chal_losses.extend(episode_chal_losses)
+            chal_csv.append(episode_chal_losses)
 
             # progress
             Utils.update_progress("GREEDY POLICIES EXECUTION, ep"+str(n),
                                   n / self.args.testIters, time.time() - start)
+
+        Controller.improvements += 1
+        with open(r'Data\Challenger Losses' + str(Controller.improvements) + '.csv', 'w+', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerows(chal_csv)
+        with open(r'Data\Current Losses' + str(Controller.improvements) + '.csv', 'w+', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerows(curr_csv)
 
         # print(chal_losses)
         # print(curr_losses)
@@ -220,6 +233,7 @@ class Controller:
             update = True
             print("UPDATING NEW POLICY FROM MEAN = ", np.mean(curr_losses), "\t TO MEAN = ", np.mean(chal_losses))
         else:
-            print("REJECTING NEW POLICY WITH MEAN = ", np.mean(chal_losses), "\t AS THE CURRENT MEAN IS = ", np.mean(curr_losses))
+            print("REJECTING NEW POLICY WITH MEAN = ", np.mean(chal_losses),
+                  "\t AS THE CURRENT MEAN IS = ", np.mean(curr_losses))
 
         return update

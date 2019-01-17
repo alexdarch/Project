@@ -42,7 +42,6 @@ class MCTS():
 
         counts = [x ** (1. / temp) for x in counts]
         probs = [x / float(sum(counts)) for x in counts]
-        curr_env.reset()  # not sure strictly necessary but add in to remove step errors
         return probs
 
     def search(self, state_2d, curr_env, done):
@@ -77,13 +76,12 @@ class MCTS():
             # print("        -- LEAF NODE --")
             self.Ps[s], v = self.nnet.predict(state_2d)
             sum_Ps_s = np.sum(self.Ps[s])
-            self.Ps[s] /= sum_Ps_s  # Is this necessary?
-
+            self.Ps[s] /= sum_Ps_s  # Normalise probs
             self.Ns[s] = 0
             return v
 
         cur_best = -float('inf')  # set current best ucb to -inf
-        best_act = -1  # null action
+        best_act = None  # null action
 
         # ------------- GET BEST ACTION -----------------------------
         # search through the valid actions and update the UCB for all actions then update best actions

@@ -19,11 +19,11 @@ pargs = Utils({
     # ---------- Policy args ------------
     'lr': 0.001,
     'dropout': 0.3,
-    'epochs': 1,
-    'batch_size': 4,
+    'epochs': 2,
+    'batch_size': 2,
     'cuda': False, #torch.cuda.is_available(),
-    'num_channels': 512,
-    'pareto': 0.5,  # multiply action loss
+    'num_channels': 512,  # 512
+    'pareto': 0.4,  # multiply action loss
 })
 
 
@@ -166,7 +166,7 @@ class NeuralNet(NetworkArchitecture):
                 #         accuracy[batch_idx - 1])
                 #     )
             if epoch+1 < pargs.epochs:
-                print("\n")  # print epoch training on a new line
+                print("\r")  # print epoch training on a new line
 
         # record to CSV file
         print("Action Losses: ", a_losses)
@@ -175,7 +175,7 @@ class NeuralNet(NetworkArchitecture):
 
         NeuralNet.trains += 1
         losses = [x for x in zip(a_losses, v_losses, tot_losses)]
-        with open('ActionAndValueLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
+        with open(r'Data\ActionAndValueLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(losses)
 

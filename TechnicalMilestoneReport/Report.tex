@@ -203,11 +203,13 @@ An outline of the program structure is shown in figure \ref{fig:flowchart}. The 
 
 The first task to complete moving forwards is to implement an intelligent adversary. For the CartPole problem, it can’t be an equal adversary since we are already fighting against gravity. Some possible adversaries are: 
 \begin{itemize}
-   \item[-] Alternate steps and only give the adversary 0.5F for each push
-   \item[-] The adversary only plays every 3 steps
-   \item[-] A more 'environmental' adversary such as changing gravity or damping 
+   \item[-] Alternate steps and only give the adversary 0.5F for each push.
+   \item[-] The adversary only plays every 3 steps.
+   \item[-] A more 'environmental' adversary such as changing gravity or damping.
 \end{itemize}
- As a starting point, the adversary will act in the same plane as the force and act ever n steps (not necessarily 3 since this may be too strong). Later it would be interesting to see 
+ As a starting point, the adversary will act in the same plane as the force and act ever n steps (not necessarily 3 since this may be too strong). 
+
+ One of the difficulties of self-play with a control problem is determining how 'good' the policy is compared to other policies. Currently, the AlphaGo Zero style of policy iteration is being used (i.e. comparing a challenger policy with the current best), however, by introducing a 
 
 \begin{itemize}
    \item[-] Expansion to other problems
