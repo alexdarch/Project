@@ -1,25 +1,23 @@
 from utils import *
-import time
+import time, csv, os
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
-import csv
 
 # import sys, os, shutil
 # import random, math, time
 # sys.path.append('..')
-#  import argparse
+# import argparse
 # from torchvision import datasets, transforms
-# from pytorch_classification.utils import Bar, AverageMeter
 
 pargs = Utils({
     # ---------- Policy args ------------
     'lr': 0.001,
     'dropout': 0.3,
-    'epochs': 2,
+    'epochs': 1,
     'batch_size': 8,
     'cuda': False, #torch.cuda.is_available(),
     'num_channels': 512,  # 512
@@ -166,13 +164,9 @@ class NeuralNet(NetworkArchitecture):
                 #         accuracy[batch_idx - 1])
                 #     )
             if epoch+1 < pargs.epochs:
-                print("\r")  # print epoch training on a new line
+                print("\r\r")  # print epoch training on a new line
 
         # record to CSV file
-        print("Action Losses: ", a_losses)
-        print("Value Losses: ", v_losses)
-        print("tot_losses: ", tot_losses)
-
         NeuralNet.trains += 1
         losses = [x for x in zip(a_losses, v_losses, tot_losses)]
         with open(r'Data\ActionAndValueLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
@@ -202,8 +196,30 @@ class NeuralNet(NetworkArchitecture):
         pi, v = self.architecture.forward(state)
         return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
-    def loss_pi(self, targets, outputs):
+    @staticmethod
+    def loss_pi(targets, outputs):
+        # the outputs are ln(p) already from log_softmax
         return -torch.sum(targets*outputs)/targets.size()[0]
 
-    def loss_v(self, targets, outputs):
+    @staticmethod
+    def loss_v(targets, outputs):
         return torch.sum((targets-outputs.view(-1))**2)/targets.size()[0]
+
+    def save_net_architecture(self, folder='NetCheckpoints', filename='checkpoint.pth.tar'):
+        file_path = os.path.join(folder, filename)
+        if not os.path.exists(folder):
+            print("Checkpoint Directory does not exist! Making directory {}".format(folder))
+            os.mkdir(folder)
+        else:
+            print("Checkpoint Directory exists! ")
+        torch.save({
+            'state_dict': self.architecture.state_dict(),
+            }, file_path)
+
+    def load_net_architecture(self, folder='NetCheckpoints', filename='checkpoint.pth.tar'):
+        file_path = os.path.join(folder, filename)
+        if not os.path.exists(file_path):
+            raise("No model in path {}".format(file_path))
+        map_location = None if pargs.cuda else 'cpu'
+        checkpoint = torch.load(file_path, map_location=map_location)
+        self.architecture.load_state_dict(checkpoint['state_dict'])

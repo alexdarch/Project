@@ -23,22 +23,34 @@ class CartPoleWrapper(CartPoleEnv):
 
     def __init__(self):
         super().__init__()
-        # self._max_steps = env.spec.max_episode_steps
-        self.discount = 0.7
         self.mcts_bins = 25
-        self.pos_size = 20
-        self.ang_size = 20
-        self.steps_beyond_done = 16  # remember to change reset too
-        self.pareto = (self.x_threshold / self.theta_threshold_radians)**2  # normalise so that x and theta are of the same magnitude
+
+        # state_2d parameters
+        self.discount = 0.7
+        self.pos_size = 50
+        self.ang_size = 50
+
+        # to stop episodes running over
+        self.steps = 0
+        self.max_steps_beyond_done = 16
+        self.max_till_done = 200
 
     def step(self, action):
         observation, reward, done, info = super().step(action)
         loss = self.state_loss()
+        self.steps += 1
+
+        # make sure that we cant go further than 200 steps
+        if self.steps >= self.max_till_done:
+            done = True
+
         return observation, loss, done, info
 
     def reset(self, init_state=None):
         rand_obs = super().reset()  # call the base reset to do all of the other stuff
-        self.steps_beyond_done = 16  # removes the warning
+        self.steps = 0
+        self.steps_beyond_done = -self.max_steps_beyond_done  # counts up to 0 from -16
+
         if init_state is None:
             return rand_obs
         self.state = np.array(init_state)  # and then edit state if we want (state is a base class attribute)
@@ -96,9 +108,12 @@ class CartPoleWrapper(CartPoleEnv):
                self.state[2]/self.theta_threshold_radians,
                self.state[3]/self.theta_threshold_radians
                ]
-        obs = norm.cdf(obs, scale=1/3)  # want +-1 to lie on the +-3std point -> scale down by 1/3
-        obs = np.round(obs * self.mcts_bins)  # norm.cdf returns a numpy array so use that to round
-        return tuple(obs.astype(int).tolist())  # convert to tuple of integers for comparison
+        # obs = norm.cdf(obs, scale=1/3)  # want +-1 to lie on the +-3std point -> scale down by 1/3
+        # obs = np.rint(obs * self.mcts_bins).astype(int)  # norm.cdf returns np.array(), if don't round then 3.8 -> 3
+        # return tuple(obs.tolist())
+
+        obs = [int(round(elm*self.mcts_bins)) for elm in obs]
+        return tuple(obs)
 
     def get_action_size(self):  # only works for discrete actions need to update!
         x = 0

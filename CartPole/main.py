@@ -6,26 +6,27 @@ from CartPoleWrapper import CartPoleWrapper
 
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
-    'policyIters': 10,
-    'numEps': 10,
+    'policyIters': 6,
+    'numEps': 3,
+    'numMCTSSims': 2,
+    'testIters': 3,
     'tempThreshold': 15,
     'updateThreshold': 0.95,
-    'maxlenOfQueue': 200000,
-    'numMCTSSims': 8,
-    'testIters': 10,
     'cpuct': 1,
-    'checkpoint': './temp/',
+
     'load_model': False,
-    'load_folder_file': ('/dev/models/8x100x50', 'best.pth.tar'),
+    'load_folder_file': ('NetCheckpoints', 'best.pth.tar'),
+
     'policyItersForTrainExamplesHistory': 20,
+    'maxlenOfQueue': 200000,
 })
 
 if __name__ == "__main__":
     env = CartPoleWrapper()   # equivalent to gym.make("CartPole-v1")
     nnet = nn(env)
 
-    # if args.load_model:
-    #     nnet.load_checkpoint(args.load_folder_file[0], args.load_folder_file[1])
+    if args.load_model:
+        nnet.load_net_architecture(args.load_folder_file[0], args.load_folder_file[1])
 
     c = Controller(env, nnet, args)
     # if args.load_model:

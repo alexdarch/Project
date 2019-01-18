@@ -6,8 +6,11 @@ Orthello
 Papers
 *.pickle
 *.ipynb_checkpoints
-Cartpole/.idea
-Cartpole/__pycache__
+CartPole/.idea
+CartPole/__pycache__
+CartPole/Data
+CartPole/ArchivedData
+CartPole/NetCheckpoints
 Figures
 *.txt
 *.aux
