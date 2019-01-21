@@ -108,6 +108,10 @@ class CartPoleWrapper(CartPoleEnv):
                self.state[2]/self.theta_threshold_radians,
                self.state[3]/self.theta_threshold_radians
                ]
+        # what about calculating a list of bin edges at the start using inverse cfd (norm.ppf),
+        # and then running each thing through until we get to said list idx then returning the index as the
+        # norm cfd'd output? would remove the whole astype(int) things too so maybe even faster if small enough?
+
         # obs = norm.cdf(obs, scale=1/3)  # want +-1 to lie on the +-3std point -> scale down by 1/3
         # obs = np.rint(obs * self.mcts_bins).astype(int)  # norm.cdf returns np.array(), if don't round then 3.8 -> 3
         # return tuple(obs.tolist())

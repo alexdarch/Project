@@ -32,7 +32,7 @@ clear all
 
 
 for iter = 1:2
-    iter
+    
     f1 = csvread(strcat("Data\ActionAndValueLosses", int2str(iter), ".csv"));
     a_losses = downsample(f1(:, 1), 1);
     v_losses = downsample(f1(:, 2), 1);
@@ -50,7 +50,7 @@ for iter = 1:2
     
     % greedy policy..............................................
     
-    f2 = csvread(strcat("Data\Current Losses", int2str(iter), ".csv"));
+    f2 = csvread(strcat("Data\TrainingExamples", int2str(iter-1), ".csv"));
     figure
     f2(f2==0) = nan;
     plot(f2')

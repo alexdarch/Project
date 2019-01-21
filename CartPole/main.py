@@ -6,15 +6,16 @@ from CartPoleWrapper import CartPoleWrapper
 
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
-    'policyIters': 6,
-    'numEps': 3,
-    'numMCTSSims': 2,
-    'testIters': 3,
+    'policyIters': 10,
+    'trainEps': 3,  # 20,
+    'testEps': 3,   # 15,
+    'numMCTSSims': 3,  # 15/20,
     'tempThreshold': 15,
     'updateThreshold': 0.95,
     'cpuct': 1,
 
-    'load_model': False,
+    'checkpoint_folder': "NetCheckpoints",
+    'load_model': True,
     'load_folder_file': ('NetCheckpoints', 'best.pth.tar'),
 
     'policyItersForTrainExamplesHistory': 20,
@@ -27,6 +28,7 @@ if __name__ == "__main__":
 
     if args.load_model:
         nnet.load_net_architecture(args.load_folder_file[0], args.load_folder_file[1])
+        print("loaded a nnet")
 
     c = Controller(env, nnet, args)
     # if args.load_model:

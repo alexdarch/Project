@@ -11,6 +11,7 @@ CartPole/__pycache__
 CartPole/Data
 CartPole/ArchivedData
 CartPole/NetCheckpoints
+CartPole/PythonTesting.ipynb
 Figures
 *.txt
 *.aux

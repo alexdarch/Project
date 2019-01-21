@@ -148,10 +148,9 @@ class NeuralNet(NetworkArchitecture):
                 # ------------ TRACK PROGRESS ----------------
                 # Get array of predicted actions and compare with target actions to compute accuracy
                 batch_idx += 1
-                Utils.update_progress(
-                    "TRAINING, EPOCH " + str(epoch + 1) + "/" + str(pargs.epochs) + ". PROGRESS OF " + str(
-                        int(len(examples) / pargs.batch_size)) + " BATCHES",
-                    batch_idx / int(len(examples) / pargs.batch_size), time.time() - start)
+                tag = "TRAINING, EPOCH " + str(epoch + 1) + "/" + str(pargs.epochs) + ". PROGRESS OF " + str(
+                        int(len(examples) / pargs.batch_size)) + " BATCHES"
+                Utils.update_progress(tag, batch_idx / int(len(examples) / pargs.batch_size), time.time() - start)
                 # --------- PRINT STATS --------------
                 # if batch_idx % 8 == 0:
                 #     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tA-Loss: {:.4f}, V-Loss: {:.4f}\tAccuracy: {:.5f}'.format(
@@ -168,7 +167,7 @@ class NeuralNet(NetworkArchitecture):
 
         # record to CSV file
         NeuralNet.trains += 1
-        losses = [x for x in zip(a_losses, v_losses, tot_losses)]
+        losses = list(zip(a_losses, v_losses, tot_losses))
         with open(r'Data\ActionAndValueLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(losses)

@@ -65,8 +65,7 @@ class MCTS():
 
         # ---------------- TERMINAL STATE ---------------
         if done:
-            # print("        -- TERMINAL STATE --")  # 8 spaces
-            return -1
+            return -1   # return value as if fallen over
 
         # ------------- EXPLORING FROM A LEAF NODE ----------------------
         # check if the state has been seen before. If not then assign Ps[s]
@@ -74,7 +73,6 @@ class MCTS():
         # Note, we do not take an action here. Just get an initial policy
         # Also get the state value - work this out later
         if s not in self.Ps:
-            # print("        -- LEAF NODE --")
             self.Ps[s], v = self.nnet.predict(state_2d)
             sum_Ps_s = np.sum(self.Ps[s])
             self.Ps[s] /= sum_Ps_s  # Normalise probs
