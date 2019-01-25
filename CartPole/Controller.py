@@ -26,7 +26,7 @@ class Controller:
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
 
         # -------- POLICY STATS ----------
-        self.policy_iters = 0
+        self.policy_iters = 1
         self.best_policy_stats = {'mean': np.nan}
         self.challenger_policy_stats = {'mean': np.nan}
 
@@ -140,7 +140,6 @@ class Controller:
 
             # ------------------------- COMPARE POLICIES AND UPDATE ---------------------------------
             update = self.policy_improvement()
-            self.policy_iters += 1
             if update:
                 self.nnet = self.challenger_nnet
                 # if we are updating then the challenger nnet is the best nnet. Also checkpoint
@@ -154,6 +153,7 @@ class Controller:
                 self.nnet.save_net_architecture(folder=self.args.checkpoint_folder,
                                                 filename='best.pth.tar')
                 # note, if there are two PI's in a row and no update then these aren't saved - only previous best ones
+            self.policy_iters += 1
 
     def policy_improvement(self) -> bool:
         """
@@ -177,7 +177,7 @@ class Controller:
             list_of_sums = [sum(s1) for s1 in init_losses]
             list_of_lens = [len(l1) for l1 in init_losses]
             self.best_policy_stats['mean'] = sum(list_of_sums) / sum(list_of_lens)
-            self.save_to_csv('BestLosses', init_losses)
+            self.save_to_csv('InitialLosses', init_losses)
 
         # ------ PLAY EPISODES WITH CHALLENGER POLICIES ------------
         start = time.time()
@@ -232,11 +232,12 @@ class Controller:
         # means are -ve, we want the number closest to zero -> chal > curr.
         # Multiplying by 0.95 gets curr -> 0, so better
         if self.challenger_policy_stats['mean'] > self.args.updateThreshold*self.best_policy_stats['mean']:
-            update = True
-            self.save_to_csv('BestLosses', chal_losses)
             print("UPDATING NEW POLICY FROM MEAN = ", self.best_policy_stats['mean'],
                   "\t TO MEAN = ", self.challenger_policy_stats['mean'])
 
+            update = True
+            self.save_to_csv('BestLosses', chal_losses)
+            self.best_policy_stats['mean'] = self.challenger_policy_stats['mean']
         else:
             print("REJECTING NEW POLICY WITH MEAN = ", self.challenger_policy_stats['mean'],
                   "\t AS THE CURRENT MEAN IS = ", self.best_policy_stats['mean'])

@@ -1,0 +1,101 @@
+\documentclass[11.7pt]{article}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{algorithm}
+%\usepackage{algorithmic}
+\usepackage[noend]{algpseudocode}
+\usepackage{amsmath}
+\usepackage{graphicx}
+%\usepackage{cleveref}
+\usepackage{wrapfig}
+\usepackage{bbm} % for indicator function \mathbbm{1}
+\usepackage{pdfpages}
+%\usepackage{multirow}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[a4paper, margin=2.5cm, tmargin=2.5cm]{geometry}
+\usepackage{float}
+\newcommand{\loss}{\mathcal{L}}
+%\usepackage{matlab-prettifier}
+%\lstset{language=Matlab,
+%numbers=left,
+%numberstyle={\tiny \color{black}},% size of the numbers
+%numbersep=9pt, % this defines how far the numbers are from the text
+%}
+
+
+\author{Alex Darch \\
+   \textit{Supervisor:} Dr Glenn Vinnicombe}
+
+\title{Lent Update: Week 1}
+
+\date{\today}
+\begin{document}
+
+%\includepdf[pages=-]{coversheet.pdf}
+
+\maketitle
+
+\section{Results}
+
+All graphs below are produced from the same setting:
+\begin{itemize}
+   \item 18MCTS recursions at each step. 
+   \item The first 15 steps of training episodes are sampled from the MCTS-Improved action probability for exploration - greedy actions are then taken (this is done by suragnair: not sure if applicable to control?). 
+   \item 20 training episodes
+   \item 15 greedy/test episodes, the mean loss is then compared with the mean loss of the best current set of test episodes by the current best policy - if mean*0.95 > best mean then update.
+   \item Losses are trained in mini-batches of 8. 
+\end{itemize}
+
+\begin{figure}[ht]
+   \begin{minipage}[b]{0.48\linewidth}
+      \centering
+      \includegraphics[width=\textwidth]{Figures/Training1.eps}
+      \caption{Training Examples}
+      \label{fig:figure1}
+   \end{minipage}
+   \hspace{0.2cm}
+   \begin{minipage}[b]{0.48\linewidth}
+      \centering
+      \includegraphics[width=\textwidth]{Figures/Training2.eps}
+      \caption{Training Examples}
+      \label{fig:figure2}
+   \end{minipage}
+\end{figure}
+
+\begin{figure}[ht]
+   \begin{minipage}[b]{0.48\linewidth}
+      \centering
+      \includegraphics[width=\textwidth]{Figures/AVloss1.eps}
+      \caption{Loss from Neural Network Training}
+      \label{fig:figure1}
+   \end{minipage}
+   \hspace{0.2cm}
+   \begin{minipage}[b]{0.48\linewidth}
+      \centering
+      \includegraphics[width=\textwidth]{Figures/AVloss2.eps}
+      \caption{Loss from Neural Network Training}
+      \label{fig:figure2}
+   \end{minipage}
+\end{figure}
+
+\begin{figure}[ht]
+   \begin{minipage}[b]{0.48\linewidth}
+      \centering
+      \includegraphics[width=\textwidth]{Figures/Challenger1.eps}
+      \caption{default}
+      \label{fig:figure1}
+   \end{minipage}
+   \hspace{0.2cm}
+   \begin{minipage}[b]{0.48\linewidth}
+      \centering
+      \includegraphics[width=\textwidth]{Figures/Challenger1.eps}
+      \caption{default}
+      \label{fig:figure2}
+   \end{minipage}
+\end{figure}
+
+
+
+
+\end{document}

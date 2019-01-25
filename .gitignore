@@ -22,6 +22,6 @@ Figures
 *.log
 *.fdb_latexmk
 *.bbl
-*.bib
 *.blg
 *.csv
+*.json
