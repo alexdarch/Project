@@ -7,11 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
-# import sys, os, shutil
-# import random, math, time
-# sys.path.append('..')
-# import argparse
-# from torchvision import datasets, transforms
+from memory_profiler import profile
 
 pargs = Utils({
     # ---------- Policy args ------------
@@ -19,8 +15,8 @@ pargs = Utils({
     'dropout': 0.3,
     'epochs': 1,
     'batch_size': 8,
-    'cuda': False, #torch.cuda.is_available(),
-    'num_channels': 512,  # 512
+    'cuda': torch.cuda.is_available(),
+    'num_channels': 256,  # 512
     'pareto': 0.2,  # multiply action loss
 })
 
@@ -37,7 +33,6 @@ class NetworkArchitecture(nn.Module):
 
         self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
         self.action_size = policy_env.get_action_size()  # only two calls here
-        self.pareto = 0.1
 
         # torch.cuda.init()   # initialise gpu? necessary?
         # print(torch.cuda.get_device_name(0))
@@ -53,15 +48,19 @@ class NetworkArchitecture(nn.Module):
         self.bn3 = nn.BatchNorm2d(pargs.num_channels)
         self.bn4 = nn.BatchNorm2d(pargs.num_channels)
 
-        self.fc1 = nn.Linear(pargs.num_channels*(self.x_size-4)*(self.x_size-4), 1024)
-        self.fc_bn1 = nn.BatchNorm1d(1024)
+        # first linear layer
+        self.fc1 = nn.Linear(pargs.num_channels*(self.x_size-4)*(self.x_size-4), 512)
+        self.fc_bn1 = nn.BatchNorm1d(512)
 
-        self.fc2 = nn.Linear(1024, 512)
-        self.fc_bn2 = nn.BatchNorm1d(512)
+        # dropout and linear layers
+        self.fc2 = nn.Linear(512, 256)
+        self.fc_bn2 = nn.BatchNorm1d(256)
+        self.drop1 = nn.Dropout(p=pargs.dropout)
+        self.drop2 = nn.Dropout(p=pargs.dropout)
 
-        self.fc3 = nn.Linear(512, self.action_size)
-
-        self.fc4 = nn.Linear(512, 1)
+        # final layers
+        self.fc3 = nn.Linear(256, self.action_size)
+        self.fc4 = nn.Linear(256, 1)
 
     def forward(self, s):
         s = s.view(-1, 1, self.x_size, self.x_size)                # batch_size x 1 x board_x x board_y
@@ -72,8 +71,11 @@ class NetworkArchitecture(nn.Module):
         s = F.relu(self.bn4(self.conv4(s)))                          # batch_size x num_channels x (board_x-4) x (board_y-4)
         s = s.view(-1, pargs.num_channels*(self.x_size-4)*(self.y_size-4))
 
-        s = F.dropout(F.relu(self.fc_bn1(self.fc1(s))), p=pargs.dropout, training=self.training)  # batch_size x 1024
-        s = F.dropout(F.relu(self.fc_bn2(self.fc2(s))), p=pargs.dropout, training=self.training)  # batch_size x 512
+        # Finished Convolution, now onto dropout and linear layers
+        s = F.relu(self.fc_bn1(self.fc1(s)))
+        s = self.drop1(s)
+        s = F.relu(self.fc_bn2(self.fc2(s)))  # batch_size x 512
+        s = self.drop2(s)
 
         pi = self.fc3(s)                                                                         # batch_size x action_size
         v = self.fc4(s)                                                                          # batch_size x 1
@@ -81,12 +83,10 @@ class NetworkArchitecture(nn.Module):
         return F.log_softmax(pi, dim=1), torch.tanh(v)
 
 
-class NeuralNet(NetworkArchitecture):
+class NeuralNet:
     trains = 0  # count the number of times train_policy is called so we can write csv's
-
     def __init__(self, policy_env):
 
-        super(NetworkArchitecture, self).__init__()  # won't work without this? but dont know why its neeeded? order of inheritance?
         self.architecture = NetworkArchitecture(policy_env)  # pargs is a global variable so no need to pass in
         self.x_size, self.y_size = policy_env.get_state_2d_size()
         self.action_size = policy_env.get_action_size()
@@ -98,7 +98,6 @@ class NeuralNet(NetworkArchitecture):
         """
         This function trains the neural network with examples obtained from
         self-play.
-
         Input:
             examples: a list of training examples, where each example is of form
                       (board, pi, v). pi is the MCTS informed policy vector for
@@ -125,7 +124,6 @@ class NeuralNet(NetworkArchitecture):
 
                 # -------------- FEED FORWARD -------------------
                 if pargs.cuda:
-                    print("Using Graphs Card!!!")
                     states_2d, target_pis, target_vs = states_2d.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
                 states_2d, target_pis, target_vs = Variable(states_2d), Variable(target_pis), Variable(target_vs)
 
@@ -135,15 +133,19 @@ class NeuralNet(NetworkArchitecture):
                 v_loss = self.loss_v(target_vs, out_v)
                 total_loss = a_loss + v_loss
 
-                # store losses for writing to file
-                a_losses.append(a_loss.detach().numpy().tolist())  # if extend: 'float' object is not iterable
-                v_losses.append(v_loss.detach().numpy().tolist())
-                tot_losses.append(total_loss.detach().numpy().tolist())
-
                 # ---------- COMPUTE GRADS AND BACK-PROP ------------
                 optimizer.zero_grad()
                 total_loss.backward()
                 optimizer.step()
+
+                # store losses for writing to file
+                if pargs.cuda:
+                    a_loss = a_loss.cpu()
+                    v_loss = v_loss.cpu()
+                    total_loss = total_loss.cpu()
+                a_losses.append(a_loss.detach().numpy().tolist())  # if extend: 'float' object is not iterable
+                v_losses.append(v_loss.detach().numpy().tolist())
+                tot_losses.append(total_loss.detach().numpy().tolist())
 
                 # ------------ TRACK PROGRESS ----------------
                 # Get array of predicted actions and compare with target actions to compute accuracy
@@ -176,7 +178,6 @@ class NeuralNet(NetworkArchitecture):
         """
         Input:
             board: current board in its canonical form.
-
         Returns:
             pi: a policy vector for the current board- a numpy array of length
                 env.get_action_size
@@ -187,7 +188,6 @@ class NeuralNet(NetworkArchitecture):
         if pargs.cuda:
             state = state.contiguous().cuda()
 
-        # state = Variable(state, volatile=True)
         state = state.view(1, self.x_size, self.x_size)
 
         # print(type(state))

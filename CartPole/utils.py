@@ -1,5 +1,5 @@
 import sys
-
+import cProfile, pstats, io
 
 class Utils(dict):
     def __getattr__(self, name):
@@ -29,4 +29,23 @@ class Utils(dict):
         text = "\r{0}: [{1}] {2:.2f}%.  Iteration Time: {3:.1f}secs. {4}".format(tag, "#" * block + "-" * (barLength - block), progress * 100, elapsed_time, status)
         sys.stdout.write(text)
         sys.stdout.flush()
+
+    @staticmethod
+    def profile(fnc):
+
+        """A decorator that uses cProfile to profile a function"""
+
+        def inner(*args, **kwargs):
+            pr = cProfile.Profile()
+            pr.enable()
+            retval = fnc(*args, **kwargs)
+            pr.disable()
+            s = io.StringIO()
+            sortby = 'cumulative'
+            ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+            ps.print_stats()
+            print(s.getvalue())
+            return retval
+
+        return inner
 

@@ -6,10 +6,10 @@ from CartPoleWrapper import CartPoleWrapper
 
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
-    'policyIters': 10,
-    'trainEps': 20,  # 20,
-    'testEps': 15,   # 15,
-    'numMCTSSims': 18,  # 15/20,
+    'policyIters': 2,
+    'trainEps': 1,  # 20,
+    'testEps': 1,   # 15,
+    'numMCTSSims': 15,  # 15/20,
     'tempThreshold': 15,
     'updateThreshold': 0.95,
     'cpuct': 1,

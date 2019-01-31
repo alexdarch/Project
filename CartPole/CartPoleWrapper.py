@@ -27,8 +27,8 @@ class CartPoleWrapper(CartPoleEnv):
 
         # state_2d parameters
         self.discount = 0.7
-        self.pos_size = 50
-        self.ang_size = 50
+        self.pos_size = 20
+        self.ang_size = 20
 
         # to stop episodes running over
         self.steps = 0

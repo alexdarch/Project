@@ -4,6 +4,9 @@ from Policy import NeuralNet
 from utils import *
 import time, csv, os
 from random import shuffle
+
+from utils import *
+from memory_profiler import profile
 # from collections import deque
 # import matplotlib.pyplot as plt
 
@@ -26,7 +29,7 @@ class Controller:
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
 
         # -------- POLICY STATS ----------
-        self.policy_iters = 1
+        self.policy_iters = 0
         self.best_policy_stats = {'mean': np.nan}
         self.challenger_policy_stats = {'mean': np.nan}
 
@@ -106,6 +109,7 @@ class Controller:
             values.append(value/self.discount_sum)
         return values
 
+    # @Utils.profile
     def policy_iteration(self):
         """
         Performs 'policyIters' iterations with trainEps episodes of self-play in each
