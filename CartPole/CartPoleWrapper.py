@@ -2,6 +2,7 @@ from gym.envs.classic_control import CartPoleEnv  # CartPoleEnv is a module, not
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm
+# from numba import jit, jitclass
 
 
 # Ought to rewrite so that state2D and state1D are attributes? Maybe consider using getter/setter methods
@@ -33,27 +34,37 @@ class CartPoleWrapper(CartPoleEnv):
         # to stop episodes running over
         self.steps = 0
         self.max_steps_beyond_done = 16
+        self.extra_steps = 0    # counts up to max_steps once done is returned
         self.max_till_done = 200
 
-    def step(self, action):
+    def step(self, action, next_true_step=False):
         observation, reward, done, info = super().step(action)
         loss = self.state_loss()
-        self.steps += 1
 
-        # make sure that we cant go further than 200 steps
-        if self.steps >= self.max_till_done:
-            done = True
+        if next_true_step:
+            self.steps += 1
+            if done or self.steps > self.max_till_done:
+                self.extra_steps += 1
+                done = False
+            if self.extra_steps > self.max_steps_beyond_done:
+                done = True
+
+        # if it isn't a true step then return done if fallen over
+        # -> doesn't stop the sim, but does add -1 to v in MCTS
 
         return observation, loss, done, info
 
     def reset(self, init_state=None):
         rand_obs = super().reset()  # call the base reset to do all of the other stuff
-        self.steps = 0
-        self.steps_beyond_done = -self.max_steps_beyond_done  # counts up to 0 from -16
+
+        self.steps_beyond_done = -1  # stops an error logging if we go beyond done
 
         if init_state is None:
+            self.steps = 0  # only want to reset steps if it is a true reset
+            self.extra_steps = 0
             return rand_obs
-        self.state = np.array(init_state)  # and then edit state if we want (state is a base class attribute)
+
+        self.state = np.array(init_state)   # and then edit state if we want (state is a base class attribute)
         return self.state
 
     def get_state_2d(self, curr_state, prev_state_2d=None):

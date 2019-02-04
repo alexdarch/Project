@@ -32,7 +32,7 @@ close all
 % clear all
 %%
 
-for iter = 1:2
+for iter = 0:10
     
 %     f1 = csvread(strcat("Data\ActionAndValueLosses", int2str(iter), ".csv"));
 %     a_losses = downsample(f1(:, 1), 1);  v_losses = downsample(f1(:, 2), 1);  tot_losses = downsample(f1(:, 3), 1);
@@ -51,11 +51,11 @@ for iter = 1:2
 %     plot(f2); title('Training Examples');  xlabel("Step number"); ylabel("State Value");    
 %     hold off
     
-    f3 = csvread(strcat("Data\BestLosses", int2str(iter), ".csv"));
-    figure;    f3(f3==0) = nan;
-    hold on
-    plot(f3');   title('Greedy Examples'); xlabel("Step number"); ylabel("State Loss");   
-    hold off
+%     f3 = csvread(strcat("Data\BestLosses", int2str(iter), ".csv"));
+%     figure;    f3(f3==0) = nan;
+%     hold on
+%     plot(f3');   title('Greedy Examples'); xlabel("Step number"); ylabel("State Loss");   
+%     hold off
     
     f3 = csvread(strcat("Data\ChallengerLosses", int2str(iter), ".csv"));
     figure;    f3(f3==0) = nan;
