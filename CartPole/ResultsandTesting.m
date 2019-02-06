@@ -43,23 +43,23 @@ for iter = 0:10
 %     plot(batches, a_losses);   plot(batches, v_losses);    plot(batches, tot_losses)
 %     legend("action losses", "value losses", "total losses"); xlabel("Batch Number"); ylabel("Loss")
 %     hold off
-%     
-%     % examples..............................................
-%     f2 = csvread(strcat("Data\TrainingExamples", int2str(iter), ".csv"));
-%     figure; f2(f2==0) = nan;
-%     hold on
-%     plot(f2); title('Training Examples');  xlabel("Step number"); ylabel("State Value");    
-%     hold off
     
+% %     % examples..............................................
+    f2 = csvread(strcat("Data\TrainingExamples", int2str(iter), ".csv"));
+    figure; f2(f2==0) = nan;
+    hold on
+    plot(f2(7:8, :)'); title('Training Examples');  xlabel("Step number"); ylabel("State Value");    
+    hold off
+%     
 %     f3 = csvread(strcat("Data\BestLosses", int2str(iter), ".csv"));
 %     figure;    f3(f3==0) = nan;
 %     hold on
 %     plot(f3');   title('Greedy Examples'); xlabel("Step number"); ylabel("State Loss");   
 %     hold off
-    
-    f3 = csvread(strcat("Data\ChallengerLosses", int2str(iter), ".csv"));
-    figure;    f3(f3==0) = nan;
-    hold on
-    plot(f3');  title('Greedy Examples'); xlabel("Step number"); ylabel("State Loss");   
-    hold off
+%     
+%     f3 = csvread(strcat("Data\ChallengerLosses", int2str(iter), ".csv"));
+%     figure;    f3(f3==0) = nan;
+%     hold on
+%     plot(f3');  title('Greedy Examples'); xlabel("Step number"); ylabel("State Loss");   
+%     hold off
 end

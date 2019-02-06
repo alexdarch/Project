@@ -16,7 +16,7 @@ class CartPoleWrapper(CartPoleEnv):
 
       - 'get_state_2d' converts an observation into a 2D state representation, taking into account previous states
       - 'print_state_2d' shows an image of the 2D state
-      - 'get_state_1d' converts state_2d into a 1d representation so the MCTS can store it
+      - 'get_rounded_observation' bins observation so the MCTS can store it
 
       - 'get_action' (redundant) converts an action of 1 / 0 to a list: [0, 1] or [1, 0]
       - 'get_state_2d_size', 'get_action_size', 'get_observation', 'get_state_2d_size' are obvious
@@ -76,9 +76,10 @@ class CartPoleWrapper(CartPoleEnv):
         pos_edges = np.linspace(-self.x_threshold, self.x_threshold, self.pos_size + 1)
         ang_edges = np.linspace(-self.theta_threshold_radians, self.theta_threshold_radians, self.ang_size + 1)
         new_pos, _, _ = np.histogram2d([curr_state[2], ], [curr_state[0], ], bins=(ang_edges, pos_edges))
-        prev_pos, _, _ = np.histogram2d([curr_state[2] - curr_state[3], ], [curr_state[0] - curr_state[1], ],
-                                        bins=(ang_edges, pos_edges))
+
         if prev_state_2d is None:
+            prev_pos, _, _ = np.histogram2d([curr_state[2] - curr_state[3], ], [curr_state[0] - curr_state[1], ],
+                                            bins=(ang_edges, pos_edges))
             return new_pos + self.discount * prev_pos
         else:
             return new_pos + self.discount * prev_state_2d
@@ -94,12 +95,6 @@ class CartPoleWrapper(CartPoleEnv):
 
         return -0.5*((self.state[0]/self.x_threshold) ** 2 + (self.state[2]/self.theta_threshold_radians) ** 2)
         # return -0.5 * ((self.state[0] / self.x_threshold) + (self.state[2] / self.theta_threshold_radians))
-
-    @staticmethod
-    def get_state_1d(state_2d):
-        state_1d = np.reshape(state_2d, (-1,))  # converts to (10000,) array
-        # s_ten = torch.tensor(state_1d, dtype=torch.float)
-        return tuple(state_1d.tolist())
 
     @staticmethod
     def get_action(action):

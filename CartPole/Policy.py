@@ -168,11 +168,12 @@ class NeuralNet:
                 print("\r\r")  # print epoch training on a new line
 
         # record to CSV file
-        NeuralNet.trains += 1
+
         losses = list(zip(a_losses, v_losses, tot_losses))
         with open(r'Data\ActionAndValueLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(losses)
+        NeuralNet.trains += 1
 
     def predict(self, state_2d):
         """

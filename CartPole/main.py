@@ -7,9 +7,9 @@ from CartPoleWrapper import CartPoleWrapper
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
     'policyIters': 10,
-    'trainEps': 25,  # 20,
-    'testEps': 15,   # 15,
-    'numMCTSSims': 18,  # 15/20,
+    'trainEps': 10,  # 20,
+    'testEps': 5,   # 15,
+    'numMCTSSims': 5,  # 15/20,
     'tempThreshold': 15,
     'updateThreshold': 0.95,
     'cpuct': 1,
