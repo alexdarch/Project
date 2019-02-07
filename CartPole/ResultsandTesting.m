@@ -2,8 +2,7 @@ clear all
 close all
 
 %%
-% f1 =
-% csvread(strcat("ArchivedData\1_ActionAndValueLosses25MCTS2batch.csv"));
+% f1 = csvread(strcat("ArchivedData\1_ActionAndValueLosses25MCTS2batch.csv"));
 % a_losses = downsample(f1(:, 1), 1); v_losses = downsample(f1(:, 2), 1);
 % tot_losses = downsample(f1(:, 3), 1);
 % 

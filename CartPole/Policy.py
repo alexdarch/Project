@@ -12,12 +12,12 @@ from memory_profiler import profile
 pargs = Utils({
     # ---------- Policy args ------------
     'lr': 0.001,
-    'dropout': 0.3,
+    'dropout': 0.5,
     'epochs': 1,
     'batch_size': 8,
     'cuda': torch.cuda.is_available(),
     'num_channels': 256,  # 512
-    'pareto': 0.2,  # multiply action loss
+    'pareto': 0.3  # multiply action loss
 })
 
 
@@ -85,6 +85,7 @@ class NetworkArchitecture(nn.Module):
 
 class NeuralNet:
     trains = 0  # count the number of times train_policy is called so we can write csv's
+
     def __init__(self, policy_env):
 
         self.architecture = NetworkArchitecture(policy_env)  # pargs is a global variable so no need to pass in

@@ -99,7 +99,7 @@ class MCTS():
 
         # ----------- RECURSION TO NEXT STATE ------------------------
         observation, loss, next_done, _ = curr_env.step(a)
-        next_s = curr_env.get_state_2d(observation, state_2d)
+        next_s = curr_env.get_state_2d(prev_state_2d=state_2d)
         v = self.search(next_s, curr_env, next_done)
 
         # ------------ BACKUP Q-VALUES AND N-VISITED -----------------

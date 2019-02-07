@@ -52,11 +52,11 @@ class Controller:
         """
         example, losses, policy_predictions = [], [], []
         observation = self.env.reset()
-        state_2d = self.env.get_state_2d(observation)
+        state_2d = self.env.get_state_2d()
         done = False
 
         while not done:
-            state_2d = self.env.get_state_2d(observation, state_2d)
+            state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
 
             # ---------- GET PROBABILITIES FOR EACH ACTION --------------
             temp = int(self.env.steps < self.args.tempThreshold)  # act greedily if after 15th step
@@ -82,10 +82,10 @@ class Controller:
         losses = []
         observation = self.env.reset()
         done = False
-        state_2d = self.env.get_state_2d(observation)
+        state_2d = self.env.get_state_2d()
 
         while not done:
-            state_2d = self.env.get_state_2d(observation, state_2d)
+            state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
             pi = g_mcts.get_action_prob(state_2d, self.env, temp=0)  # MCTS improved policy
             action = np.argmax(pi)  # greedy action, not that needed as temp is 0
             observation, loss, done, info = self.env.step(action, next_true_step=True)
@@ -102,7 +102,7 @@ class Controller:
             values.append(value/self.discount_sum)
         return values
 
-    # @Utils.profile
+    @Utils.profile
     def policy_iteration(self):
         """
         Performs 'policyIters' iterations with trainEps episodes of self-play in each

@@ -24,12 +24,11 @@ class CartPoleWrapper(CartPoleEnv):
 
     def __init__(self):
         super().__init__()
-        self.mcts_bins = 25
-
-        # state_2d parameters
-        self.discount = 0.7
-        self.pos_size = 20
-        self.ang_size = 20
+        # flattened and 2d state parameters
+        self.state_bins = 25  # 30 puts us out of memory
+        scaling = 0.25  # 1/3 gives a flat distribution if obs ~ gaussian, lowering it gives more weight to values -> 0
+        self.bin_edges = np.asarray([norm.ppf(edge, scale=scaling) for edge in np.linspace(0, 1, num=self.state_bins+2)])
+        self.discount = 0.5
 
         # to stop episodes running over
         self.steps = 0
@@ -67,21 +66,22 @@ class CartPoleWrapper(CartPoleEnv):
         self.state = np.array(init_state)   # and then edit state if we want (state is a base class attribute)
         return self.state
 
-    def get_state_2d(self, curr_state, prev_state_2d=None):
+    def get_state_2d(self, prev_state_2d=None):
         """
         curr_state numpy array [x_pos, x_vel, angle, ang_vel]
         even though it says state[3] = tip_vel in the docs, its actually ang_vel (since length = 1)
         max values are:        [+-2.4, inf, +-12 = +-0.21rad, inf]
         """
-        pos_edges = np.linspace(-self.x_threshold, self.x_threshold, self.pos_size + 1)
-        ang_edges = np.linspace(-self.theta_threshold_radians, self.theta_threshold_radians, self.ang_size + 1)
-        new_pos, _, _ = np.histogram2d([curr_state[2], ], [curr_state[0], ], bins=(ang_edges, pos_edges))
+        norm_obs = self.get_rounded_observation()
+        new_pos, _, _ = np.histogram2d([norm_obs[2], ], [norm_obs[0], ], bins=self.state_bins)
 
         if prev_state_2d is None:
-            prev_pos, _, _ = np.histogram2d([curr_state[2] - curr_state[3], ], [curr_state[0] - curr_state[1], ],
-                                            bins=(ang_edges, pos_edges))
+            prev_pos, _, _ = np.histogram2d([norm_obs[2] - norm_obs[3], ], [norm_obs[0] - norm_obs[1], ],
+                                            bins=self.state_bins)
+            prev_pos[prev_pos < 1 / (2 ** 5)] = 0   # only keep up to 4 times steps back
             return new_pos + self.discount * prev_pos
         else:
+            prev_state_2d[prev_state_2d < 1 / (2 ** 5)] = 0
             return new_pos + self.discount * prev_state_2d
 
     def state_loss(self):
@@ -114,15 +114,9 @@ class CartPoleWrapper(CartPoleEnv):
                self.state[2]/self.theta_threshold_radians,
                self.state[3]/self.theta_threshold_radians
                ]
-        # what about calculating a list of bin edges at the start using inverse cfd (norm.ppf),
-        # and then running each thing through until we get to said list idx then returning the index as the
-        # norm cfd'd output? would remove the whole astype(int) things too so maybe even faster if small enough?
 
-        # obs = norm.cdf(obs, scale=1/3)  # want +-1 to lie on the +-3std point -> scale down by 1/3
-        # obs = np.rint(obs * self.mcts_bins).astype(int)  # norm.cdf returns np.array(), if don't round then 3.8 -> 3
-        # return tuple(obs.tolist())
-
-        obs = [int(round(elm*self.mcts_bins)) for elm in obs]
+        # get the index of teh nearest bin edge. Since bin edges near 0 are closer, weighting is better
+        obs = [np.abs(self.bin_edges - elm).argmin() for elm in obs]  # should return the indexes of the norm.cdf
         return tuple(obs)
 
     def get_action_size(self):  # only works for discrete actions need to update!
@@ -132,7 +126,7 @@ class CartPoleWrapper(CartPoleEnv):
         return x
 
     def get_state_2d_size(self):
-        return self.pos_size, self.ang_size
+        return self.state_bins, self.state_bins
 
     def print_state_2d(self, state_2d):
         plt.imshow(state_2d, extent=[-self.x_threshold, self.x_threshold, -self.theta_threshold_radians,
