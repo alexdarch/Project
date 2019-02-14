@@ -33,17 +33,17 @@ close all
 
 for iter = 0:10
     
-%     f1 = csvread(strcat("Data\ActionAndValueLosses", int2str(iter), ".csv"));
-%     a_losses = downsample(f1(:, 1), 1);  v_losses = downsample(f1(:, 2), 1);  tot_losses = downsample(f1(:, 3), 1);
-%     batches = [1:numel(tot_losses)];
-%     
-%     figure
-%     hold on
-%     plot(batches, a_losses);   plot(batches, v_losses);    plot(batches, tot_losses)
-%     legend("action losses", "value losses", "total losses"); xlabel("Batch Number"); ylabel("Loss")
-%     hold off
+    f1 = csvread(strcat("Data\ActionAndValueLosses", int2str(iter), ".csv"));
+    a_losses = downsample(f1(1, :), 1);  v_losses = downsample(f1(2, :), 1);  tot_losses = downsample(f1(3, :), 1);
+    batches = [1:numel(tot_losses)];
     
-% %     % examples..............................................
+    figure
+    hold on
+    plot(batches, a_losses);   plot(batches, v_losses);    plot(batches, tot_losses)
+    legend("action losses", "value losses", "total losses"); xlabel("Batch Number"); ylabel("Loss")
+    hold off
+    
+%     % examples..............................................
     f2 = csvread(strcat("Data\TrainingExamples", int2str(iter), ".csv"));
     figure; f2(f2==0) = nan;
     hold on

@@ -8,9 +8,9 @@ Papers
 *.ipynb_checkpoints
 CartPole/.idea
 CartPole/__pycache__
-CartPole/Data
-CartPole/ArchivedData
-CartPole/NetCheckpoints
+CartPole/Data/*
+ArchivedData/*
+CartPole/NetCheckpoints/*
 CartPole/PythonTesting.ipynb
 Figures
 *.txt

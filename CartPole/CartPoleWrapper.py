@@ -5,7 +5,6 @@ from scipy.stats import norm
 # from numba import jit, jitclass
 
 
-# Ought to rewrite so that state2D and state1D are attributes? Maybe consider using getter/setter methods
 class CartPoleWrapper(CartPoleEnv):
     """
     This wrapper changes/adds:
@@ -26,14 +25,16 @@ class CartPoleWrapper(CartPoleEnv):
         super().__init__()
         # flattened and 2d state parameters
         self.state_bins = 25  # 30 puts us out of memory
-        scaling = 0.25  # 1/3 gives a flat distribution if obs ~ gaussian, lowering it gives more weight to values -> 0
-        self.bin_edges = np.asarray([norm.ppf(edge, scale=scaling) for edge in np.linspace(0, 1, num=self.state_bins+2)])
+        scaling = 1 / 3  # 1/3 gives a flat distribution if obs ~ gaussian, lowering it gives more weight to values -> 0
+        # if we have linspace(0, 1, ..) then we get inf as the last two value -> they are never picked
+        self.bin_edges = np.asarray(
+            [norm.ppf(edge, scale=scaling) for edge in np.linspace(0.001, 0.999, num=self.state_bins)])
         self.discount = 0.5
 
         # to stop episodes running over
         self.steps = 0
         self.max_steps_beyond_done = 16
-        self.extra_steps = 0    # counts up to max_steps once done is returned
+        self.extra_steps = 0  # counts up to max_steps once done is returned
         self.max_till_done = 200
 
     def step(self, action, next_true_step=False):
@@ -47,15 +48,12 @@ class CartPoleWrapper(CartPoleEnv):
                 done = False
             if self.extra_steps > self.max_steps_beyond_done:
                 done = True
-
         # if it isn't a true step then return done if fallen over
         # -> doesn't stop the sim, but does add -1 to v in MCTS
-
         return observation, loss, done, info
 
     def reset(self, init_state=None):
         rand_obs = super().reset()  # call the base reset to do all of the other stuff
-
         self.steps_beyond_done = -1  # stops an error logging if we go beyond done
 
         if init_state is None:
@@ -63,7 +61,7 @@ class CartPoleWrapper(CartPoleEnv):
             self.extra_steps = 0
             return rand_obs
 
-        self.state = np.array(init_state)   # and then edit state if we want (state is a base class attribute)
+        self.state = np.array(init_state)  # and then edit state if we want (state is a base class attribute)
         return self.state
 
     def get_state_2d(self, prev_state_2d=None):
@@ -73,28 +71,28 @@ class CartPoleWrapper(CartPoleEnv):
         max values are:        [+-2.4, inf, +-12 = +-0.21rad, inf]
         """
         norm_obs = self.get_rounded_observation()
-        new_pos, _, _ = np.histogram2d([norm_obs[2], ], [norm_obs[0], ], bins=self.state_bins)
+        edges = np.linspace(-0.5, self.state_bins-0.5, self.state_bins+1)  # need extra to get [-0.5, ..., 24.5]
+        new_pos, _, _ = np.histogram2d([norm_obs[2], ], [norm_obs[0], ], bins=(edges, edges))
 
         if prev_state_2d is None:
-            prev_pos, _, _ = np.histogram2d([norm_obs[2] - norm_obs[3], ], [norm_obs[0] - norm_obs[1], ],
-                                            bins=self.state_bins)
-            prev_pos[prev_pos < 1 / (2 ** 5)] = 0   # only keep up to 4 times steps back
+            prev_obs = (self.state[2] - self.state[3], self.state[0] - self.state[1])    # (prev_theta, prev_x)
+            prev_obs = (prev_obs[0] / self.theta_threshold_radians, prev_obs[1] / self.x_threshold)
+
+            prev_obs_binned = [np.abs(self.bin_edges - elm).argmin() for elm in prev_obs]
+            prev_pos, _, _ = np.histogram2d([prev_obs_binned[0], ], [prev_obs_binned[1], ], bins=(edges, edges))
+            # prev_pos[prev_pos < 1 / (2 ** 5)] = 0   # only keep up to 4 times steps back
             return new_pos + self.discount * prev_pos
         else:
-            prev_state_2d[prev_state_2d < 1 / (2 ** 5)] = 0
+            # prev_state_2d[prev_state_2d < 1 / (2 ** 5)] = 0
             return new_pos + self.discount * prev_state_2d
 
     def state_loss(self):
         # change the reward to -(x^2+theta^2). Technically a loss now
         done = abs(self.state[0]) > self.x_threshold or abs(self.state[2]) > self.theta_threshold_radians
-        # g = np.random.randint(0, high=2)
-        # if g == 0:
-        #     g = -1
         if done:
-            return -1   # -1 is the maximum loss possible
+            return -1  # -1 is the maximum loss possible
 
-        return -0.5*((self.state[0]/self.x_threshold) ** 2 + (self.state[2]/self.theta_threshold_radians) ** 2)
-        # return -0.5 * ((self.state[0] / self.x_threshold) + (self.state[2] / self.theta_threshold_radians))
+        return -0.5 * ((self.state[0] / self.x_threshold) ** 2 + (self.state[2] / self.theta_threshold_radians) ** 2)
 
     @staticmethod
     def get_action(action):
@@ -109,12 +107,11 @@ class CartPoleWrapper(CartPoleEnv):
 
     def get_rounded_observation(self):
         # get the values to be roughly within +-1
-        obs = [self.state[0]/self.x_threshold,
-               self.state[1]/self.x_threshold,
-               self.state[2]/self.theta_threshold_radians,
-               self.state[3]/self.theta_threshold_radians
+        obs = [self.state[0] / self.x_threshold,
+               self.state[1] / self.x_threshold,
+               self.state[2] / self.theta_threshold_radians,
+               self.state[3] / self.theta_threshold_radians
                ]
-
         # get the index of teh nearest bin edge. Since bin edges near 0 are closer, weighting is better
         obs = [np.abs(self.bin_edges - elm).argmin() for elm in obs]  # should return the indexes of the norm.cdf
         return tuple(obs)

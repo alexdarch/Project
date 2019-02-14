@@ -21,7 +21,7 @@ pargs = Utils({
 })
 
 
-class NetworkArchitecture(nn.Module):
+class NetworkArchitecture1(nn.Module):
     """
     This class specifies the base NeuralNet class. To define your own neural
     network, subclass this class and implement the functions below. The neural
@@ -34,51 +34,95 @@ class NetworkArchitecture(nn.Module):
         self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
         self.action_size = policy_env.get_action_size()  # only two calls here
 
-        # torch.cuda.init()   # initialise gpu? necessary?
-        # print(torch.cuda.get_device_name(0))
-
         super(NetworkArchitecture, self).__init__()
-        self.conv1 = nn.Conv2d(1, pargs.num_channels, 3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(pargs.num_channels, pargs.num_channels, 3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(pargs.num_channels, pargs.num_channels, 3, stride=1)
-        self.conv4 = nn.Conv2d(pargs.num_channels, pargs.num_channels, 3, stride=1)
 
-        self.bn1 = nn.BatchNorm2d(pargs.num_channels)
-        self.bn2 = nn.BatchNorm2d(pargs.num_channels)
-        self.bn3 = nn.BatchNorm2d(pargs.num_channels)
-        self.bn4 = nn.BatchNorm2d(pargs.num_channels)
+        self.kernel_size = 3
+        self.conv_layer1 = self.conv_layer(1, pargs.num_channels, pad=1)
+        self.conv_layer2 = self.conv_layer(pargs.num_channels, pargs.num_channels, pad=1)
+        self.conv_layer3 = self.conv_layer(pargs.num_channels, pargs.num_channels, pad=0)
+        self.conv_layer4 = self.conv_layer(pargs.num_channels, pargs.num_channels, pad=0)
 
-        # first linear layer
-        self.fc1 = nn.Linear(pargs.num_channels*(self.x_size-4)*(self.x_size-4), 512)
-        self.fc_bn1 = nn.BatchNorm1d(512)
-
-        # dropout and linear layers
-        self.fc2 = nn.Linear(512, 256)
-        self.fc_bn2 = nn.BatchNorm1d(256)
-        self.drop1 = nn.Dropout(p=pargs.dropout)
-        self.drop2 = nn.Dropout(p=pargs.dropout)
+        # <editor-fold desc="Linear Layers with dropout and batch normalisation">
+        self.layer1_output_size = 512
+        self.layer2_output_size = int(self.layer1_output_size / 2)
+        self.linear_layer1 = nn.Sequential(
+            nn.Linear(pargs.num_channels * (self.x_size - 4) * (self.x_size - 4), self.layer1_output_size),
+            nn.BatchNorm1d(self.layer1_output_size),
+            nn.ReLU(),
+            nn.Dropout(p=pargs.dropout)
+        )
+        self.linear_layer2 = nn.Sequential(
+            nn.Linear(self.layer1_output_size, self.layer2_output_size),
+            nn.BatchNorm1d(self.layer2_output_size),
+            nn.ReLU(),
+            nn.Dropout(p=pargs.dropout)
+        )
+        # </editor-fold>
 
         # final layers
-        self.fc3 = nn.Linear(256, self.action_size)
-        self.fc4 = nn.Linear(256, 1)
+        self.action_layer = nn.Linear(self.layer2_output_size, self.action_size)
+        self.value_layer = nn.Linear(self.layer2_output_size, 1)
 
     def forward(self, s):
-        s = s.view(-1, 1, self.x_size, self.x_size)                # batch_size x 1 x board_x x board_y
-        # s = s.view(-1, 1 * self.x_size * self.x_size)                # batch_size x 1 x board_x x board_y
-        s = F.relu(self.bn1(self.conv1(s)))                          # batch_size x num_channels x board_x x board_y
-        s = F.relu(self.bn2(self.conv2(s)))                          # batch_size x num_channels x board_x x board_y
-        s = F.relu(self.bn3(self.conv3(s)))                          # batch_size x num_channels x (board_x-2) x (board_y-2)
-        s = F.relu(self.bn4(self.conv4(s)))                          # batch_size x num_channels x (board_x-4) x (board_y-4)
-        s = s.view(-1, pargs.num_channels*(self.x_size-4)*(self.y_size-4))
+        s = s.view(-1, 1, self.x_size, self.y_size)      # converts [1, 25, 25] -> [1, 1, 25, 25]
+        s = self.conv_layer1(s)                          # [1, 1, 25, 25] -> [1, 256, 25, 25]
+        s = self.conv_layer2(s)                          # [1, 256, 25, 25] -> [1, 256, 25, 25]
+        s = self.conv_layer3(s)                          # [1, 256, 25, 25] -> [1, 256, 23, 23]
+        s = self.conv_layer4(s)                          # [1, 256, 23, 23] -> [1, 256, 21, 21]
+
+        # note, -1 is inferred from the other dimensions, therefore, since we are using only 1 image (not the 17:
+        # one for each piece that alpha zero uses) we can infer the other dimension by setting arg1 = 1
+        # note that before, this was num_channels*(x_size-4)*(y_size-4)
+        s = s.view(s.size(0), -1)  # [1, 256, 21, 21] -> [1, 112896]
 
         # Finished Convolution, now onto dropout and linear layers
-        s = F.relu(self.fc_bn1(self.fc1(s)))
-        s = self.drop1(s)
-        s = F.relu(self.fc_bn2(self.fc2(s)))  # batch_size x 512
-        s = self.drop2(s)
+        s = self.linear_layer1(s)
+        s = self.linear_layer2(s)
 
-        pi = self.fc3(s)                                                                         # batch_size x action_size
-        v = self.fc4(s)                                                                          # batch_size x 1
+        pi = self.action_layer(s)   # batch_size x action_size
+        v = self.value_layer(s)     # batch_size x 1
+
+        return F.log_softmax(pi, dim=1), torch.tanh(v)
+
+    def conv_layer(self, input_size, output_size, pad, pool_kernel=None):
+        layers = [
+            nn.Conv2d(input_size, output_size, kernel_size=self.kernel_size, stride=1, padding=pad),
+            nn.BatchNorm2d(output_size),
+            nn.ReLU()
+        ]
+        if pool_kernel is not None:
+            layers.append(nn.MaxPool2d(kernel_size=pool_kernel))
+
+        return nn.Sequential(*layers)
+
+class NetworkArchitecture(nn.Module):
+    def __init__(self, policy_env):
+        self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
+        self.action_size = policy_env.get_action_size()  # o
+
+        super(NetworkArchitecture, self).__init__()
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=5, stride=1, padding=2),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=5, stride=1, padding=2),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2))
+        self.drop_out = nn.Dropout()
+        self.fc1 = nn.Linear(6 * 6 * 64, 1000)
+        self.action_layer = nn.Linear(1000, self.action_size)
+        self.value_layer = nn.Linear(1000, 1)
+
+    def forward(self, x):
+        s = x.view(-1, 1, self.x_size, self.y_size)  # converts [1, 25, 25] -> [1, 1, 25, 25]
+        s = self.layer1(s)     # [1, 1, 25, 25] -> [1, 32, 12, 12]
+        s = self.layer2(s)     # [1, 32, 12, 12] -> [1, 64, 6, 6]
+        s = s.reshape(s.size(0), -1) # [1, 64, 6, 6] -> [1, 2304]
+        s = self.drop_out(s)   # [1, 2304] -> [1, 2304]
+        s = self.fc1(s)        # [1, 2304] -> [1, 1000]
+        pi = self.action_layer(s)  # batch_size x action_size
+        v = self.value_layer(s)  # batch_size x 1
 
         return F.log_softmax(pi, dim=1), torch.tanh(v)
 
@@ -171,7 +215,7 @@ class NeuralNet:
         # record to CSV file
 
         losses = list(zip(a_losses, v_losses, tot_losses))
-        with open(r'Data\ActionAndValueLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
+        with open(r'Data\NNetLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(losses)
         NeuralNet.trains += 1
@@ -185,11 +229,11 @@ class NeuralNet:
                 env.get_action_size
             v: a float in [-1,1] that gives the value of the current board
         """
+
         # preparing input
         state = torch.FloatTensor(state_2d.astype(np.float64))
         if pargs.cuda:
             state = state.contiguous().cuda()
-
         state = state.view(1, self.x_size, self.x_size)
 
         # print(type(state))
