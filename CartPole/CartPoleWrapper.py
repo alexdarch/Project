@@ -2,7 +2,8 @@ from gym.envs.classic_control import CartPoleEnv  # CartPoleEnv is a module, not
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm
-# from numba import jit, jitclass
+from utils import *
+from numba import jit, jitclass
 
 
 class CartPoleWrapper(CartPoleEnv):
@@ -31,6 +32,9 @@ class CartPoleWrapper(CartPoleEnv):
             [norm.ppf(edge, scale=scaling) for edge in np.linspace(0.001, 0.999, num=self.state_bins)])
         self.discount = 0.5
 
+        # define new actions:
+        self.action_space = [-1, 1]
+
         # to stop episodes running over
         self.steps = 0
         self.max_steps_beyond_done = 16
@@ -38,7 +42,35 @@ class CartPoleWrapper(CartPoleEnv):
         self.max_till_done = 200
 
     def step(self, action, next_true_step=False):
-        observation, reward, done, info = super().step(action)
+        assert action in self.action_space, "%r (%s) invalid" % (action, type(action))
+        state = self.state
+        x, x_dot, theta, theta_dot = state
+        force = action * self.force_mag
+
+        costheta = np.cos(theta)
+        sintheta = np.sin(theta)
+        temp = (force + self.polemass_length * theta_dot * theta_dot * sintheta) / self.total_mass
+        thetaacc = (self.gravity * sintheta - costheta * temp) / (
+                    self.length * (4.0 / 3.0 - self.masspole * costheta * costheta / self.total_mass))
+        xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
+        if self.kinematics_integrator == 'euler':
+            x = x + self.tau * x_dot
+            x_dot = x_dot + self.tau * xacc
+            theta = theta + self.tau * theta_dot
+            theta_dot = theta_dot + self.tau * thetaacc
+        else:  # semi-implicit euler
+            x_dot = x_dot + self.tau * xacc
+            x = x + self.tau * x_dot
+            theta_dot = theta_dot + self.tau * thetaacc
+            theta = theta + self.tau * theta_dot
+
+        self.state = (x, x_dot, theta, theta_dot)
+        done = x < -self.x_threshold \
+               or x > self.x_threshold \
+               or theta < -self.theta_threshold_radians \
+               or theta > self.theta_threshold_radians
+        done = bool(done)
+
         loss = self.state_loss()
 
         if next_true_step:
@@ -48,9 +80,10 @@ class CartPoleWrapper(CartPoleEnv):
                 done = False
             if self.extra_steps > self.max_steps_beyond_done:
                 done = True
+
         # if it isn't a true step then return done if fallen over
         # -> doesn't stop the sim, but does add -1 to v in MCTS
-        return observation, loss, done, info
+        return np.array(self.state), loss, done, {}
 
     def reset(self, init_state=None):
         rand_obs = super().reset()  # call the base reset to do all of the other stuff
@@ -71,19 +104,19 @@ class CartPoleWrapper(CartPoleEnv):
         max values are:        [+-2.4, inf, +-12 = +-0.21rad, inf]
         """
         norm_obs = self.get_rounded_observation()
-        edges = np.linspace(-0.5, self.state_bins-0.5, self.state_bins+1)  # need extra to get [-0.5, ..., 24.5]
+        edges = np.linspace(-0.5, self.state_bins - 0.5, self.state_bins + 1)  # need extra to get [-0.5, ..., 24.5]
         new_pos, _, _ = np.histogram2d([norm_obs[2], ], [norm_obs[0], ], bins=(edges, edges))
 
         if prev_state_2d is None:
-            prev_obs = (self.state[2] - self.state[3], self.state[0] - self.state[1])    # (prev_theta, prev_x)
+            prev_obs = (self.state[2] - self.state[3], self.state[0] - self.state[1])  # (prev_theta, prev_x)
             prev_obs = (prev_obs[0] / self.theta_threshold_radians, prev_obs[1] / self.x_threshold)
 
             prev_obs_binned = [np.abs(self.bin_edges - elm).argmin() for elm in prev_obs]
             prev_pos, _, _ = np.histogram2d([prev_obs_binned[0], ], [prev_obs_binned[1], ], bins=(edges, edges))
-            # prev_pos[prev_pos < 1 / (2 ** 5)] = 0   # only keep up to 4 times steps back
+            prev_pos[prev_pos < 1 / (2 ** 9)] = 0   # only keep up to 8 times steps back
             return new_pos + self.discount * prev_pos
         else:
-            # prev_state_2d[prev_state_2d < 1 / (2 ** 5)] = 0
+            prev_state_2d[prev_state_2d < 1 / (2 ** 9)] = 0
             return new_pos + self.discount * prev_state_2d
 
     def state_loss(self):
@@ -105,22 +138,26 @@ class CartPoleWrapper(CartPoleEnv):
     def get_observation(self):
         return self.state
 
+    def get_mcts_state(self, acc):
+        return tuple([int(dim * acc) for dim in self.state])
+
     def get_rounded_observation(self):
         # get the values to be roughly within +-1
         obs = [self.state[0] / self.x_threshold,
                self.state[1] / self.x_threshold,
                self.state[2] / self.theta_threshold_radians,
-               self.state[3] / self.theta_threshold_radians
+               self.state[3] / (self.theta_threshold_radians*10)  # when normed, this has a 10x wider range than others
                ]
         # get the index of teh nearest bin edge. Since bin edges near 0 are closer, weighting is better
         obs = [np.abs(self.bin_edges - elm).argmin() for elm in obs]  # should return the indexes of the norm.cdf
         return tuple(obs)
 
     def get_action_size(self):  # only works for discrete actions need to update!
-        x = 0
-        while self.action_space.contains(x):
-            x += 1
-        return x
+        return len(self.action_space)
+
+    def get_greedy_action(self, pi):
+        idx = np.argmax(pi)
+        return self.action_space[idx]
 
     def get_state_2d_size(self):
         return self.state_bins, self.state_bins

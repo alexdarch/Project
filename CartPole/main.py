@@ -6,16 +6,16 @@ from CartPoleWrapper import CartPoleWrapper
 
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
-    'policyIters': 6,
-    'trainEps': 50,  # 20,
-    'testEps': 50,   # 15,
-    'numMCTSSims': 10,  # 15/20,
+    'policyIters': 20,
+    'trainEps': 20,  # 20,
+    'testEps': 150,   # 15,
+    'numMCTSSims': 5,  # 15/20,
     'tempThreshold': 15,
-    'updateThreshold': 0.95,
+    'updateThreshold': 1,
     'cpuct': 1,
 
     'checkpoint_folder': "NetCheckpoints",
-    'load_model': True,
+    'load_model': False,
     'load_folder_file': ('NetCheckpoints', 'best.pth.tar'),
 
     'policyItersForTrainExamplesHistory': 20,

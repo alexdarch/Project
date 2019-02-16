@@ -21,7 +21,7 @@ pargs = Utils({
 })
 
 
-class NetworkArchitecture1(nn.Module):
+class NetworkArchitecture(nn.Module):
     """
     This class specifies the base NeuralNet class. To define your own neural
     network, subclass this class and implement the functions below. The neural
@@ -95,7 +95,7 @@ class NetworkArchitecture1(nn.Module):
 
         return nn.Sequential(*layers)
 
-class NetworkArchitecture(nn.Module):
+class NetworkArchitecture1(nn.Module):
     def __init__(self, policy_env):
         self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
         self.action_size = policy_env.get_action_size()  # o
@@ -198,17 +198,7 @@ class NeuralNet:
                 tag = "TRAINING, EPOCH " + str(epoch + 1) + "/" + str(pargs.epochs) + ". PROGRESS OF " + str(
                         int(len(examples) / pargs.batch_size)) + " BATCHES"
                 Utils.update_progress(tag, batch_idx / int(len(examples) / pargs.batch_size), time.time() - start)
-                # --------- PRINT STATS --------------
-                # if batch_idx % 8 == 0:
-                #     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tA-Loss: {:.4f}, V-Loss: {:.4f}\tAccuracy: {:.5f}'.format(
-                #         epoch + 1,
-                #         batch_idx * pargs.batch_size,
-                #         states_2d.size()[0],
-                #         100 * batch_idx * pargs.batch_size / states_2d.size()[0],
-                #         a_loss,
-                #         v_loss,
-                #         accuracy[batch_idx - 1])
-                #     )
+
             if epoch+1 < pargs.epochs:
                 print("\r\r")  # print epoch training on a new line
 

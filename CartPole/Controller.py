@@ -50,20 +50,21 @@ class Controller:
             trainExamples: a list of examples of the form (state_2d, pi, v). pi is the MCTS informed policy
                             vector, v is the value defined as an expected future loss, E[L].
         """
-        example, losses, policy_predictions = [], [], []
+        example, observations, losses, policy_predictions = [], [], [], []
         observation = self.env.reset()
         state_2d = self.env.get_state_2d()
         done = False
 
         while not done:
             state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
+            observations.append(observation)
 
             # ---------- GET PROBABILITIES FOR EACH ACTION --------------
             temp = 1 # int(self.env.steps < self.args.tempThreshold)  # act greedily if after 15th step
             pi = self.mcts.get_action_prob(state_2d, self.env, temp=temp)  # MCTS improved action-prob
 
             # ---------- TAKE NEXT STEP PROBABILISTICALLY ---------------
-            action = np.random.choice(len(pi), p=pi)  # take a random choice with pi probability for each action
+            action = np.random.choice(self.env.action_space, p=pi)  # take a random choice with pi probability for each action
             observation, loss, done, info = self.env.step(action, next_true_step=True)
 
             # ---------------------- RECORD STEP ------------------------
@@ -75,7 +76,7 @@ class Controller:
         # Convert Losses to expected losses (discounted into the future by self.max_steps_beyond_done)
         values = self.get_values_from_losses(losses)
         example = [s_a + [v] for s_a, v in zip(example[:-self.max_steps_beyond_done], values)]
-        return example, policy_predictions[:-self.max_steps_beyond_done]
+        return example, observations[:-self.max_steps_beyond_done], policy_predictions[:-self.max_steps_beyond_done]
 
     def get_values_from_losses(self, losses: list) -> list:
         values = []
@@ -106,7 +107,7 @@ class Controller:
                 # Generate a new batch of episodes based on current net
                 for eps in range(1, self.args.trainEps+1):
                     self.mcts = MCTS(self.env, self.nnet, self.args)  # reset search tree
-                    example_episode, policy_predictions = self.execute_episode()  # ought to return both the value and predicted value + MCTS-action and Policy Action
+                    example_episode, observations, policy_predictions = self.execute_episode()  # ought to return both the value and predicted value + MCTS-action and Policy Action
 
                     # bookkeeping + plot progress
                     policy_examples.extend(example_episode)
@@ -114,8 +115,9 @@ class Controller:
                     policy_examples_to_csv.append([step[1] for step in policy_predictions])  # and the policy-pred value
                     policy_examples_to_csv.append([step[1] for step in example_episode])    # save the MCTS actions
                     policy_examples_to_csv.append([step[0] for step in policy_predictions])    # save the policy action
+                    policy_examples_to_csv.append(observations)    # save the observations
 
-                    Utils.update_progress("EXECUTING EPISODES UNDER POLICY ITER "+str(i),
+                    Utils.update_progress("TRAINING EPISODES ITER: "+str(i)+" ep"+str(eps),
                                           eps/self.args.trainEps,
                                           time.time() - start)
 
@@ -146,7 +148,7 @@ class Controller:
 
     def greedy_episode(self, g_mcts, policy) -> list:
         # No self play yet!!
-        losses = -1*np.ones((200, ), dtype=float)
+        losses = -1*np.ones((200+1, ), dtype=float)
         observation = self.env.reset()
         counter, done = 0, False
         state_2d = self.env.get_state_2d()
@@ -155,7 +157,7 @@ class Controller:
             state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
             # pi = g_mcts.get_action_prob(state_2d, self.env, temp=0)  # MCTS improved policy
             pi, v = policy.predict(state_2d)
-            action = np.argmax(pi)  # greedy action, not that needed as temp is 0
+            action = self.env.get_greedy_action(pi)  # greedy action, not that needed as temp is 0
             observation, loss, done, info = self.env.step(action, next_true_step=True)
             losses[counter] = loss
             counter += 1
@@ -176,7 +178,7 @@ class Controller:
                 # ---- Play an episode with the current policy ----
                 initial = MCTS(self.env, self.nnet, self.args)  # reset mcts tree for each episode
                 init_losses.append(self.greedy_episode(initial, self.nnet))
-                Utils.update_progress("INITIAL GREEDY POLICY EXECUTION, ep" + str(n-1),
+                Utils.update_progress("INITIAL GREEDY POLICY EXECUTION, ep" + str(n),
                                       n / self.args.testEps, time.time() - init_start)
 
             # calculate the mean of the list of lists
@@ -190,12 +192,12 @@ class Controller:
         for n in range(1, self.args.testEps+1):
             chal_mcts = MCTS(self.env, self.challenger_nnet, self.args)
             chal_losses.append(self.greedy_episode(chal_mcts, self.challenger_nnet))
-            Utils.update_progress("GREEDY POLICIES EXECUTION, ep"+str(n-1),
+            Utils.update_progress("GREEDY POLICIES EXECUTION, ep"+str(n),
                                   n / self.args.testEps, time.time() - start)
 
         # calculate the mean of the list of lists
         list_of_sums = [sum(s1) for s1 in chal_losses]
-        list_of_lens = [len(l1) for l1 in chal_losses]
+        list_of_lens = [len(l1) for l1 in chal_losses]  # these should all be 200
         self.challenger_policy_stats['mean'] = sum(list_of_sums)/sum(list_of_lens)
         self.save_to_csv('ChallengerLosses', chal_losses)
 

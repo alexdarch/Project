@@ -33,7 +33,7 @@ close all
 
 for iter = 0:10
     
-    f1 = csvread(strcat("Data\ActionAndValueLosses", int2str(iter), ".csv"));
+    f1 = csvread(strcat("Data\NNetLosses", int2str(iter), ".csv"))';
     a_losses = downsample(f1(1, :), 1);  v_losses = downsample(f1(2, :), 1);  tot_losses = downsample(f1(3, :), 1);
     batches = [1:numel(tot_losses)];
     

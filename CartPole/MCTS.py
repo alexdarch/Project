@@ -1,21 +1,61 @@
 import math
 import numpy as np
+from copy import deepcopy
 EPS = 1e-8
+g_accuracy = 1e10
 
 
-class MCTS():
+class RoundingDict:
+    def __init__(self, preset=None):
+        self.rounded_dict = {}
+        self.accuracy = 1e10
+        if preset is not None:
+            assert isinstance(preset, dict), "not a valid dictionary"
+            self.rounded_dict = deepcopy(preset)
+            print(self.rounded_dict)
+
+    def __contains__(self, key):
+        if isinstance(key, np.ndarray):
+            key = tuple([int(dim * g_accuracy) for dim in key])
+
+        if key in self.rounded_dict:
+            return True
+        # print("not found")
+        return False
+
+    def __getitem__(self, key):
+        # returns the value of self.rounded_dict at index key
+        if isinstance(key, np.ndarray):
+            key = tuple([int(dim * g_accuracy) for dim in key])
+
+        if key in self.rounded_dict:
+            # print("Getting ", key, self.rounded_dict[key])
+            return self.rounded_dict[key]
+        raise KeyError('Key not found')
+
+    def __setitem__(self, key, item):
+        if isinstance(key, np.ndarray):
+            key = tuple([int(dim * g_accuracy) for dim in key])
+        self.rounded_dict[key] = item
+        # print("Setting: ", key, self.rounded_dict[key])
+
+    def __str__(self):
+        return self.rounded_dict.__str__()
+
+
+class MCTS:
 
     def __init__(self, game, nnet, args):  # remove env? Need to re-pass it in every move - not just the first move
         self.env = game
         self.nnet = nnet
         self.args = args
-        self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
-        self.Nsa = {}  # stores #times edge s,a was visited
-        self.Ns = {}  # stores #times board s was visited
-        self.Ps = {}  # stores initial policy (returned by neural net)
+        self.Qsa = RoundingDict()  # stores Q values for s,a (as defined in the paper)
+        self.Nsa = RoundingDict()  # stores #times edge s,a was visited
+        self.Ns = RoundingDict()  # stores #times board s was visited
+        self.Ps = RoundingDict()  # stores initial policy (returned by neural net)
 
-        self.Es = {}  # stores game.getGameEnded ended for board s
-        self.Vs = {}  # stores game.getValidMoves for board s
+        self.Es = RoundingDict()  # stores game.getGameEnded ended for board s
+        self.Vs = RoundingDict()  # stores game.getValidMoves for board s
 
     def get_action_prob(self, state_2d, curr_env, temp=1):
         """
@@ -32,8 +72,8 @@ class MCTS():
             self.search(state_2d, curr_env, done=False)
 
         curr_env.reset(observation)
-        s = curr_env.get_rounded_observation()
-        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.env.get_action_size())]
+        s = curr_env.get_mcts_state(g_accuracy)
+        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in self.env.action_space]
 
         if temp == 0:
             bestA = np.argmax(counts)
@@ -61,7 +101,7 @@ class MCTS():
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
-        s = curr_env.get_rounded_observation()
+        s = curr_env.get_mcts_state(g_accuracy)
 
         # ---------------- TERMINAL STATE ---------------
         if done:
@@ -85,10 +125,9 @@ class MCTS():
         # ------------- GET BEST ACTION -----------------------------
         # search through the valid actions and update the UCB for all actions then update best actions
         # pick the action with the highest upper confidence bound
-        for a in range(curr_env.get_action_size()):
+        for a in curr_env.action_space:
             if (s, a) in self.Qsa:
-                u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
-                            1 + self.Nsa[(s, a)])
+                u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * np.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)])
             else:
                 u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
 
