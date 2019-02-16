@@ -1,46 +1,6 @@
-import math
 import numpy as np
-from copy import deepcopy
 EPS = 1e-8
 g_accuracy = 1e10
-
-
-class RoundingDict:
-    def __init__(self, preset=None):
-        self.rounded_dict = {}
-        self.accuracy = 1e10
-        if preset is not None:
-            assert isinstance(preset, dict), "not a valid dictionary"
-            self.rounded_dict = deepcopy(preset)
-            print(self.rounded_dict)
-
-    def __contains__(self, key):
-        if isinstance(key, np.ndarray):
-            key = tuple([int(dim * g_accuracy) for dim in key])
-
-        if key in self.rounded_dict:
-            return True
-        # print("not found")
-        return False
-
-    def __getitem__(self, key):
-        # returns the value of self.rounded_dict at index key
-        if isinstance(key, np.ndarray):
-            key = tuple([int(dim * g_accuracy) for dim in key])
-
-        if key in self.rounded_dict:
-            # print("Getting ", key, self.rounded_dict[key])
-            return self.rounded_dict[key]
-        raise KeyError('Key not found')
-
-    def __setitem__(self, key, item):
-        if isinstance(key, np.ndarray):
-            key = tuple([int(dim * g_accuracy) for dim in key])
-        self.rounded_dict[key] = item
-        # print("Setting: ", key, self.rounded_dict[key])
-
-    def __str__(self):
-        return self.rounded_dict.__str__()
 
 
 class MCTS:
@@ -49,13 +9,13 @@ class MCTS:
         self.env = game
         self.nnet = nnet
         self.args = args
-        self.Qsa = RoundingDict()  # stores Q values for s,a (as defined in the paper)
-        self.Nsa = RoundingDict()  # stores #times edge s,a was visited
-        self.Ns = RoundingDict()  # stores #times board s was visited
-        self.Ps = RoundingDict()  # stores initial policy (returned by neural net)
+        self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
+        self.Nsa = {}  # stores #times edge s,a was visited
+        self.Ns = {}  # stores #times board s was visited
+        self.Ps = {}  # stores initial policy (returned by neural net)
 
-        self.Es = RoundingDict()  # stores game.getGameEnded ended for board s
-        self.Vs = RoundingDict()  # stores game.getValidMoves for board s
+        self.Es = {}  # stores game.getGameEnded ended for board s
+        self.Vs = {}  # stores game.getValidMoves for board s
 
     def get_action_prob(self, state_2d, curr_env, temp=1):
         """
@@ -129,7 +89,7 @@ class MCTS:
             if (s, a) in self.Qsa:
                 u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * np.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)])
             else:
-                u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
+                u = self.args.cpuct * self.Ps[s][a] * np.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
 
             if u > cur_best:
                 cur_best = u
