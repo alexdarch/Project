@@ -107,6 +107,9 @@ class CartPoleWrapper(CartPoleEnv):
         even though it says state[3] = tip_vel in the docs, its actually ang_vel (since length = 1)
         max values are:        [+-2.4, inf, +-12 = +-0.21rad, inf]
         """
+
+        # return np.array(self.state)
+
         norm_obs = self.get_normed_observation()
         # get the index of teh nearest bin edge. Since bin edges near 0 are closer, weighting is better
         norm_obs = [np.abs(self.bin_edges - elm).argmin() for elm in norm_obs]  # bin the normed obs

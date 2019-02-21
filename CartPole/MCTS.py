@@ -26,13 +26,19 @@ class MCTS:
                    proportional to Nsa[(s,a)]**(1./temp)
         """
         observation = curr_env.get_observation()   # obs = [x_pos, x_vel, angle, ang_vel]
+        # print("Base State: ", curr_env.get_mcts_state(g_accuracy))
         for i in range(self.args.numMCTSSims):
             # print("-------- CALL SEARCH -------")
             curr_env.reset(observation)
             self.search(state_2d, curr_env, done=False)
 
+
         curr_env.reset(observation)
         s = curr_env.get_mcts_state(g_accuracy)
+        #print("Final Base State ", s)
+        #print("Printing counts:", self.Nsa)
+        #print("Printing Values:", self.Qsa)
+
         counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in curr_env.action_space]
 
         if temp == 0:
@@ -65,7 +71,12 @@ class MCTS:
 
         # ---------------- TERMINAL STATE ---------------
         if done:
-            return self.env.terminal_cost  # return value as if fallen over
+            if curr_env.steps >= curr_env.steps_till_done:
+                _, v = self.nnet.predict(state_2d)
+                print("done and got to the end at step: ", curr_env.steps, " and value: ", v)
+                return v
+            # print("Done, at step: ", curr_env.steps, " returning: ", curr_env.terminal_cost)
+            return curr_env.terminal_cost  # return value as if fallen over
 
         # ------------- EXPLORING FROM A LEAF NODE ----------------------
         # check if the state has been seen before. If not then assign Ps[s]

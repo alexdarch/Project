@@ -21,7 +21,7 @@ pargs = Utils({
 })
 
 
-class NetworkArchitecture1(nn.Module):
+class ResNetworkArchitecture(nn.Module):
     """
     This class specifies the base NeuralNet class. To define your own neural
     network, subclass this class and implement the functions below. The neural
@@ -34,7 +34,8 @@ class NetworkArchitecture1(nn.Module):
         self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
         self.action_size = policy_env.get_action_size()  # only two calls here
 
-        super(NetworkArchitecture, self).__init__()
+        super(ResNetworkArchitecture, self).__init__()
+        print("Res Network Architecture")
 
         self.kernel_size = 3
         self.conv_layer1 = self.conv_layer(1, pargs.num_channels, pad=1)
@@ -96,12 +97,13 @@ class NetworkArchitecture1(nn.Module):
         return nn.Sequential(*layers)
 
 
-class NetworkArchitecture(nn.Module):
+class ConvNetworkArchitecture(nn.Module):
     def __init__(self, policy_env):
         self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
-        self.action_size = policy_env.get_action_size()  # o
+        self.action_size = policy_env.get_action_size()
+        print("Conv Network Architecture")
 
-        super(NetworkArchitecture, self).__init__()
+        super(ConvNetworkArchitecture, self).__init__()
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=5, stride=1, padding=2),
             nn.ReLU(),
@@ -128,12 +130,45 @@ class NetworkArchitecture(nn.Module):
         return F.log_softmax(pi, dim=1), -torch.sigmoid(v)
 
 
+class StateNetworkArchitecture(torch.nn.Module):
+    def __init__(self, policy_env):
+        super(StateNetworkArchitecture, self).__init__()
+        print("State Network Architecture")
+        self.action_size = policy_env.get_action_size()  # o
+        HIDDEN = 400
+        self.linear1 = torch.nn.Linear(4, HIDDEN)
+        self.linear2 = torch.nn.Linear(HIDDEN, HIDDEN)
+        self.linear3 = torch.nn.Linear(HIDDEN, HIDDEN)
+
+        self.drop_out = nn.Dropout()
+        self.action_layer = nn.Linear(HIDDEN, self.action_size)
+        self.value_layer = nn.Linear(HIDDEN, 1)
+
+    def forward(self, x):
+        # takes a vector [action, obs0, obs1, obs2, obs3] and spits out a predicted state
+        s = x.view(-1, 4)  # converts [1, 25, 25] -> [1, 1, 25, 25]
+        s = self.linear1(s)     # [1, 1, 25, 25] -> [1, 32, 12, 12]
+        #s = self.drop_out(s)  # [1, 2304] -> [1, 2304]
+        s = self.linear2(s)     # [1, 32, 12, 12] -> [1, 64, 6, 6]
+        #s = self.drop_out(s)   # [1, 2304] -> [1, 2304]
+        s = self.linear3(s)        # [1, 2304] -> [1, 1000]
+        pi = self.action_layer(s)  # batch_size x action_size
+        v = self.value_layer(s)  # batch_size x 1
+
+        return F.log_softmax(pi, dim=1), -torch.sigmoid(v)
+
+
+        x = torch.tanh(self.linear1(x))
+        x = torch.tanh(self.linear2(x))
+        return self.linear3(x)
+
+
 class NeuralNet:
     trains = 0  # count the number of times train_policy is called so we can write csv's
 
     def __init__(self, policy_env):
 
-        self.architecture = NetworkArchitecture(policy_env)  # pargs is a global variable so no need to pass in
+        self.architecture = ResNetworkArchitecture(policy_env)  # pargs is a global variable so no need to pass in
         self.x_size, self.y_size = policy_env.get_state_2d_size()
         self.action_size = policy_env.get_action_size()
 
@@ -159,12 +194,9 @@ class NeuralNet:
 
             while batch_idx < int(len(examples)/pargs.batch_size):
                 # --------------- GET BATCHES -------------------
-                # randomise the batches (weird that this is done for each batch?
-                # why not take first 64 fom pre randomised batch etc)
-                # sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
-                # states_2d, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
-                idx = batch_idx*pargs.batch_size
-                states_2d, pis, vs = list(zip(*examples[idx:idx+pargs.batch_size+1]))
+                # Stochastic gradient descent -> pick a random sample
+                sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
+                states_2d, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
                 # convert to torch tensors
                 states_2d = torch.FloatTensor(np.array(states_2d).astype(np.float64))
                 target_pis = torch.FloatTensor(np.array(pis))
@@ -173,9 +205,10 @@ class NeuralNet:
                 # -------------- FEED FORWARD -------------------
                 if pargs.cuda:
                     states_2d, target_pis, target_vs = states_2d.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
+                states_2d, target_pis, target_vs = Variable(states_2d), Variable(target_pis), Variable(target_vs)
+                out_pi, out_v = self.architecture(states_2d)
 
                 # -------------- COMPUTE LOSSES -----------------
-                out_pi, out_v = self.architecture(states_2d)
                 a_loss = self.loss_pi(target_pis, out_pi) * pargs.pareto
                 v_loss = self.loss_v(target_vs, out_v)
                 total_loss = a_loss + v_loss
