@@ -6,7 +6,7 @@ import time, csv, os
 from random import shuffle
 
 from utils import *
-from memory_profiler import profile
+# from memory_profiler import profile
 # from collections import deque
 # import matplotlib.pyplot as plt
 
@@ -39,7 +39,7 @@ class Controller:
         self.discount_factor = self.final_discount ** (1/(self.max_steps_beyond_done - 1))
         self.discount_sum = (1-self.final_discount * self.discount_factor)/(1-self.discount_factor)  # to normalise
 
-    def execute_episode(self) -> list:
+    def execute_episode(self):
 
         """
         This function executes one episode of self-play, starting with player 1. As the game is played, each turn
@@ -52,33 +52,32 @@ class Controller:
         """
         example, observations, losses, policy_predictions = [], [], [], []
         observation = self.env.reset()
-        state_2d = self.env.get_state_2d()
+        state_2d, loss = self.env.get_state_2d(), self.env.state_loss()
         done = False
 
         while not done:
+            # ---------------------- RECORD STEP ------------------------
             state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
             observations.append(observation)
+            losses.append(loss)
+            policy_action, policy_value = self.nnet.predict(state_2d)
+            policy_predictions.append([policy_action.tolist(), policy_value.tolist()[0]])
 
             # ---------- GET PROBABILITIES FOR EACH ACTION --------------
-            temp = 1 # int(self.env.steps < self.args.tempThreshold)  # act greedily if after 15th step
+            temp = 1  # int(self.env.steps < self.args.tempThreshold)  # act greedily if after 15th step
             pi = self.mcts.get_action_prob(state_2d, self.env, temp=temp)  # MCTS improved action-prob
+            example.append([state_2d, pi])
 
             # ---------- TAKE NEXT STEP PROBABILISTICALLY ---------------
             action = np.random.choice(self.env.action_space, p=pi)  # take a random choice with pi probability for each action
             observation, loss, done, info = self.env.step(action, next_true_step=True)
-
-            # ---------------------- RECORD STEP ------------------------
-            example.append([state_2d, pi])
-            policy_action, policy_value = self.nnet.predict(state_2d)
-            policy_predictions.append([policy_action.tolist(), policy_value.tolist()[0]])
-            losses.append(loss)
 
         # Convert Losses to expected losses (discounted into the future by self.max_steps_beyond_done)
         values = self.get_values_from_losses(losses)
         example = [s_a + [v] for s_a, v in zip(example[:-self.max_steps_beyond_done], values)]
         return example, observations[:-self.max_steps_beyond_done], policy_predictions[:-self.max_steps_beyond_done]
 
-    def get_values_from_losses(self, losses: list) -> list:
+    def get_values_from_losses(self, losses):
         values = []
         for step_idx in range(len(losses) - self.max_steps_beyond_done):
             value, discount = 0, 1
@@ -88,7 +87,7 @@ class Controller:
             values.append(value/self.discount_sum)
         return values
 
-    @Utils.profile
+    # @Utils.profile
     def policy_iteration(self):
         """
         Performs 'policyIters' iterations with trainEps episodes of self-play in each
@@ -110,12 +109,13 @@ class Controller:
                     example_episode, observations, policy_predictions = self.execute_episode()  # ought to return both the value and predicted value + MCTS-action and Policy Action
 
                     # bookkeeping + plot progress
-                    policy_examples.extend(example_episode)
-                    policy_examples_to_csv.append([step[2] for step in example_episode])    # only save the value
-                    policy_examples_to_csv.append([step[1] for step in policy_predictions])  # and the policy-pred value
-                    policy_examples_to_csv.append([step[1] for step in example_episode])    # save the MCTS actions
-                    policy_examples_to_csv.append([step[0] for step in policy_predictions])    # save the policy action
-                    policy_examples_to_csv.append(observations)    # save the observations
+                    if len(example_episode) > 70:
+                        policy_examples.extend(example_episode)
+                        policy_examples_to_csv.append([step[2] for step in example_episode])    # only save the value
+                        policy_examples_to_csv.append([step[1] for step in policy_predictions])  # and the policy-pred value
+                        policy_examples_to_csv.append([step[1] for step in example_episode])    # save the MCTS actions
+                        policy_examples_to_csv.append([step[0] for step in policy_predictions])    # save the policy action
+                        policy_examples_to_csv.append(observations)    # save the observations
 
                     Utils.update_progress("TRAINING EPISODES ITER: "+str(i)+" ep"+str(eps),
                                           eps/self.args.trainEps,
@@ -146,9 +146,9 @@ class Controller:
                 # note, if there are two PI's in a row and no update then these aren't saved - only previous best ones
             self.policy_iters += 1
 
-    def greedy_episode(self, g_mcts, policy) -> list:
+    def test_episode(self, policy):
         # No self play yet!!
-        losses = -1*np.ones((200+1, ), dtype=float)
+        losses = -1*np.ones((self.env.max_steps_beyond_done+self.env.steps_till_done+1, ), dtype=float)
         observation = self.env.reset()
         counter, done = 0, False
         state_2d = self.env.get_state_2d()
@@ -157,102 +157,71 @@ class Controller:
             state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
             # pi = g_mcts.get_action_prob(state_2d, self.env, temp=0)  # MCTS improved policy
             pi, v = policy.predict(state_2d)
-            action = self.env.get_greedy_action(pi)  # greedy action, not that needed as temp is 0
+            action = np.random.choice(self.env.action_space, p=pi)
             observation, loss, done, info = self.env.step(action, next_true_step=True)
             losses[counter] = loss
             counter += 1
         return losses
 
-    def policy_improvement(self) -> bool:
+    def policy_improvement(self):
         """
         Compares self.challenger_nnet and self.nnet by comparing the means and medians of played episodes
         returns: update = True/False depending on whether some condition is met.
         """
         update = False
-        chal_losses = []
 
         if self.policy_iters == 0:
             init_start = time.time()
-            init_losses = []
+            init_losses, init_length = [], []
             for n in range(1, self.args.testEps + 1):
                 # ---- Play an episode with the current policy ----
-                initial = MCTS(self.env, self.nnet, self.args)  # reset mcts tree for each episode
-                init_losses.append(self.greedy_episode(initial, self.nnet))
-                Utils.update_progress("INITIAL GREEDY POLICY EXECUTION, ep" + str(n),
+                init_ep = self.test_episode(self.nnet)
+                init_losses.append(init_ep)
+                init_length.append(len(init_ep[init_ep > -1]))
+                Utils.update_progress("INITIAL POLICY TEST EPISODES, ep" + str(n),
                                       n / self.args.testEps, time.time() - init_start)
 
             # calculate the mean of the list of lists
             list_of_sums = [sum(s1) for s1 in init_losses]
             list_of_lens = [len(l1) for l1 in init_losses]
             self.best_policy_stats['mean'] = sum(list_of_sums) / sum(list_of_lens)
+            self.best_policy_stats['avg_length'] = sum(init_length)/self.args.testEps
             self.save_to_csv('InitialLosses', init_losses)
 
         # ------ PLAY EPISODES WITH CHALLENGER POLICIES ------------
+        chal_losses, chal_lengths = [], []
         start = time.time()
         for n in range(1, self.args.testEps+1):
-            chal_mcts = MCTS(self.env, self.challenger_nnet, self.args)
-            chal_losses.append(self.greedy_episode(chal_mcts, self.challenger_nnet))
-            Utils.update_progress("GREEDY POLICIES EXECUTION, ep"+str(n),
+            chal_ep = self.test_episode(self.challenger_nnet)
+            chal_losses.append(chal_ep)
+            chal_lengths.append(len(chal_ep[chal_ep > -1]))
+            Utils.update_progress("CHALLENGER POLICIES TEST EPISODES, ep"+str(n),
                                   n / self.args.testEps, time.time() - start)
 
         # calculate the mean of the list of lists
         list_of_sums = [sum(s1) for s1 in chal_losses]
         list_of_lens = [len(l1) for l1 in chal_losses]  # these should all be 200
         self.challenger_policy_stats['mean'] = sum(list_of_sums)/sum(list_of_lens)
+        self.challenger_policy_stats['avg_length'] = sum(chal_lengths)/self.args.testEps
         self.save_to_csv('ChallengerLosses', chal_losses)
-
-        # print(chal_losses)
-        # print(curr_losses)
-        # # -------- CALCULATE GAUSSIAN DISTRIBUTIONS FOR CURRENT AND CHALLENGER LOSSES -------------
-        # # means and variances
-        # curr_mean, curr_variance = np.mean(curr_losses), np.var(curr_losses)
-        # chal_mean, chal_variance = np.mean(chal_losses), np.var(chal_losses)
-        #
-        # third_std = 4*max(np.sqrt(chal_variance), np.sqrt(curr_variance))   # calculate 4 standard deviations
-        # avg_mean = np.mean([curr_mean, chal_mean])  # and a roughly average centre
-        # # just want a range that roughly covers 4 standard deviations around the means (which are about equal usually)
-        # x_range = np.linspace(avg_mean - third_std, avg_mean + third_std, 200)
-        #
-        # # calculate a y=x^2 transformed normal pdf over the losses of each
-        # curr_y = np.exp(-0.5 * (x_range-curr_mean)**2 / curr_variance) / np.sqrt(2*curr_variance*np.pi)
-        # chal_y = np.exp(-0.5 * (x_range-chal_mean)**2 / chal_variance) / np.sqrt(2*chal_variance*np.pi)
-        #
-        # # -------------- CALCULATE p(X-Y > 0) DIFFERENCE OF GAUSSIANS --------------
-        # # # Calculate difference of gaussians stats (mode == mean for gaussians)
-        # diff_mean, diff_variance = curr_mean - chal_mean, np.sqrt(curr_variance + chal_variance)
-        # x_difference = np.linspace(diff_mean-3*np.sqrt(diff_variance), diff_mean+3*np.sqrt(diff_variance), 200)
-        # y_difference = np.exp(-0.5*(x_difference-diff_mean)**2/diff_variance)/np.sqrt(abs(x_difference)*2*diff_variance*np.pi)
-        # zero_idx = (np.abs(x_difference - 0)).argmin()  # find the index where x=0 (or closest to)
-        # prob_chal_greater_than_curr = np.trapz(y_difference[zero_idx:], x_difference[zero_idx:])
-        #
-        # plt.plot(x_range, curr_y)
-        # plt.plot(x_range, chal_y)
-        # plt.legend(["current policy", "challenger policy"])
-        # plt.gca().set_prop_cycle(None)  # reset the colour cycles
-        # plt.hist(curr_losses, bins=20, density=True, alpha=0.3)
-        # plt.hist(chal_losses, bins=20, density=True, alpha=0.3)
-        #
-        # plt.plot(x_difference, y_difference)
-        # plt.show()
-        # print("prob_chal_greater_than_curr: ", prob_chal_greater_than_curr)
 
         # ---------- COMPARE NEURAL NETS AND DETERMINE WHETHER TO UPDATE -----------
         # means are -ve, we want the number closest to zero -> chal > curr.
         # Multiplying by 0.95 gets curr -> 0, so better
-        if self.challenger_policy_stats['mean'] > self.args.updateThreshold*self.best_policy_stats['mean']:
-            print("UPDATING NEW POLICY FROM MEAN = ", self.best_policy_stats['mean'],
-                  "\t TO MEAN = ", self.challenger_policy_stats['mean'], "\n")
+        if self.challenger_policy_stats['avg_length'] > self.args.updateThreshold*self.best_policy_stats['avg_length']:
+            print("UPDATING NEW POLICY FROM avg_length = ", self.best_policy_stats['avg_length'],
+                  "\t TO avg_length = ", self.challenger_policy_stats['avg_length'], "\n")
 
             update = True
             self.save_to_csv('BestLosses', chal_losses)
-            self.best_policy_stats['mean'] = self.challenger_policy_stats['mean']
+            self.best_policy_stats['avg_length'] = self.challenger_policy_stats['avg_length']
         else:
-            print("REJECTING NEW POLICY WITH MEAN = ", self.challenger_policy_stats['mean'],
-                  "\t AS THE CURRENT MEAN IS = ", self.best_policy_stats['mean'], "\n")
+            print("REJECTING NEW POLICY WITH avg_length = ", self.challenger_policy_stats['avg_length'],
+                  "\t AS THE CURRENT avg_length IS = ", self.best_policy_stats['avg_length'], "\n")
 
         return update
 
-    def save_to_csv(self, file_name: str, data: list):
+    def save_to_csv(self, file_name, data):
         # maybe add some unpickling for saving whole examples? or to a different function
         file_path = os.path.join('Data', file_name + str(self.policy_iters))
         with open(file_path + '.csv', 'w+', newline='') as f:

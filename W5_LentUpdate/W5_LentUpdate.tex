@@ -11,6 +11,7 @@
 \usepackage{wrapfig}
 \usepackage{bbm} % for indicator function \mathbbm{1}
 \usepackage{pdfpages}
+\usepackage{lscape}
 %\usepackage{multirow}
 \usepackage[colorinlistoftodos]{todonotes}
 \usepackage[a4paper, margin=2.5cm, tmargin=2.5cm]{geometry}
@@ -38,57 +39,180 @@
 
 \section{Neural Network Adaptations}
 
-Neural network architecture. The input to the neural network is a 19 x 19 x 17
-image stack comprising 17 binary feature planes. Eight feature planes, Xt, consist
-of binary values indicating the presence of the current player’s stones ( = X 1 t
-i if
-intersection i contains a stone of the player’s colour at time-step t; 0 if the intersection
-is empty, contains an opponent stone, or if t < 0). A further 8 feature planes,
-Yt, represent the corresponding features for the opponent’s stones. The final feature
-plane, C, represents the colour to play, and has a constant value of either 1 if black
-is to play or 0 if white is to play. These planes are concatenated together to give
-input features st = [Xt, Yt, Xt−1, Yt−1,..., Xt−7, Yt−7, C]. History features Xt, Yt are
-necessary, because Go is not fully observable solely from the current stones, as
-repetitions are forbidden; similarly, the colour feature C is necessary, because the
-komi is not observable.
-The input features st are processed by a residual tower that consists of a single
-convolutional block followed by either 19 or 39 residual blocks4.
-The convolutional block applies the following modules:
-(1) A convolution of 256 filters of kernel size 3 × 3 with stride 1
-(2) Batch normalization18
-(3) A rectifier nonlinearity
-Each residual block applies the following modules sequentially to its input:
-(1) A convolution of 256 filters of kernel size 3 × 3 with stride 1
-(2) Batch normalization
-(3) A rectifier nonlinearity
-(4) A convolution of 256 filters of kernel size 3 × 3 with stride 1
-(5) Batch normalization
-(6) A skip connection that adds the input to the block
-(7) A rectifier nonlinearity
-The output of the residual tower is passed into two separate ‘heads’ for
-computing the policy and value. The policy head applies the following modules:
-(1) A convolution of 2 filters of kernel size 1 × 1 with stride 1
-(2) Batch normalization
-(3) A rectifier nonlinearity
-(4) A fully connected linear layer that outputs a vector of size 192 + 1 = 362,
-corresponding to logit probabilities for all intersections and the pass move
-The value head applies the following modules:
-(1) A convolution of 1 filter of kernel size 1 × 1 with stride 1
-(2) Batch normalization
-(3) A rectifier nonlinearity
-(4) A fully connected linear layer to a hidden layer of size 256
-(5) A rectifier nonlinearity
-(6) A fully connected linear layer to a scalar
-(7) A tanh nonlinearity outputting a scalar in the range [− 1, 1]
-The overall network depth, in the 20- or 40-block network, is 39 or 79 parameterized
-layers, respectively, for the residual tower, plus an additional 2 layers for
-the policy head and 3 layers for the value head.
-We note that a different variant of residual networks was simultaneously applied
-to computer Go33 and achieved an amateur dan-level performance; however, this
-was restricted to a single-headed policy network trained solely by supervised
-learning.
+% Neural network architecture. The input to the neural network is a 19 x 19 x 17
+% image stack comprising 17 binary feature planes. Eight feature planes, Xt, consist
+% of binary values indicating the presence of the current player’s stones ( = X 1 t
+% i if
+% intersection i contains a stone of the player’s colour at time-step t; 0 if the intersection
+% is empty, contains an opponent stone, or if t < 0). A further 8 feature planes,
+% Yt, represent the corresponding features for the opponent’s stones. The final feature
+% plane, C, represents the colour to play, and has a constant value of either 1 if black
+% is to play or 0 if white is to play. These planes are concatenated together to give
+% input features st = [Xt, Yt, Xt−1, Yt−1,..., Xt−7, Yt−7, C]. History features Xt, Yt are
+% necessary, because Go is not fully observable solely from the current stones, as
+% repetitions are forbidden; similarly, the colour feature C is necessary, because the
+% komi is not observable.
+% The input features st are processed by a residual tower that consists of a single
+% convolutional block followed by either 19 or 39 residual blocks4.
+% The convolutional block applies the following modules:
+% (1) A convolution of 256 filters of kernel size 3 × 3 with stride 1
+% (2) Batch normalization18
+% (3) A rectifier nonlinearity
+% Each residual block applies the following modules sequentially to its input:
+% (1) A convolution of 256 filters of kernel size 3 × 3 with stride 1
+% (2) Batch normalization
+% (3) A rectifier nonlinearity
+% (4) A convolution of 256 filters of kernel size 3 × 3 with stride 1
+% (5) Batch normalization
+% (6) A skip connection that adds the input to the block
+% (7) A rectifier nonlinearity
+% The output of the residual tower is passed into two separate ‘heads’ for
+% computing the policy and value. The policy head applies the following modules:
+% (1) A convolution of 2 filters of kernel size 1 × 1 with stride 1
+% (2) Batch normalization
+% (3) A rectifier nonlinearity
+% (4) A fully connected linear layer that outputs a vector of size 192 + 1 = 362,
+% corresponding to logit probabilities for all intersections and the pass move
+% The value head applies the following modules:
+% (1) A convolution of 1 filter of kernel size 1 × 1 with stride 1
+% (2) Batch normalization
+% (3) A rectifier nonlinearity
+% (4) A fully connected linear layer to a hidden layer of size 256
+% (5) A rectifier nonlinearity
+% (6) A fully connected linear layer to a scalar
+% (7) A tanh nonlinearity outputting a scalar in the range [− 1, 1]
+% The overall network depth, in the 20- or 40-block network, is 39 or 79 parameterized
+% layers, respectively, for the residual tower, plus an additional 2 layers for
+% the policy head and 3 layers for the value head.
+% We note that a different variant of residual networks was simultaneously applied
+% to computer Go33 and achieved an amateur dan-level performance; however, this
+% was restricted to a single-headed policy network trained solely by supervised
+% learning.
 
 \section{Motion History Images}
-Temporal Convolutional Neural Networks https://www.cs.jhu.edu/~areiter/JHU/Publications_files/ColinLea_TCN_CameraReady.pdf
+% Temporal Convolutional Neural Networks https://www.cs.jhu.edu/~areiter/JHU/Publications_files/
+% ColinLea_TCN_CameraReady.pdf
+\section{Results}
+
+\begin{landscape}
+
+\pagebreak
+\subsection{Iteration 0 MCTS vs Policy Comparison}
+\begin{figure}[H]
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{Figures/3DI0PX.PNG}
+        \caption{A 3D slice of the state space with colour intensity representing the probability of taking a left action.}
+        \label{fig:3DI0PX}
+    \end{minipage}
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{Figures/3DI0MX.PNG}
+        \caption{The MCTS Predictions with no training.}
+        \label{fig:3DI0MX}
+    \end{minipage}
+\end{figure}
+
+The neural network starts off at about p=0.5 for all inputs and the MCTS Improves these to the range p=(0.1, 0.9).
+
+\pagebreak
+\subsection{Iteration 1 MCTS vs Policy Comparison}
+\begin{figure}[H]
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{Figures/3DI1PX.PNG}
+        \caption{The Neural Network Predicted actions after training once.}
+        \label{fig:3DI1PX}
+    \end{minipage}
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{Figures/3DI1MX.PNG}
+        \caption{The MCTS Improved actions after training once.}
+        \label{fig:3DI1MX}
+    \end{minipage}
+\end{figure}
+
+With one train of the neural network the data is far more centrally clustered towards (0, 0, 0, 0) as expected. Furthermore the neural network is predicting actions that agree with the areas that the MCTS actions suggested last iteration. These also have high probabilities. 
+
+\pagebreak
+\subsection{Iteration 1 MCTS Comparison between varying  $\dot{x}$}
+
+\begin{figure}[H]
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{Figures/3DI1MX-1.PNG}
+        \caption{MCTS Improved actions with $\dot{x}=-1$.}
+        \label{fig:3DI1MX-1}
+    \end{minipage}
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{Figures/3DI1MX+1.PNG}
+        \caption{MCTS Improved actions with $\dot{x}=+1$.}
+        \label{fig:3DI1MX+1}
+    \end{minipage}
+\end{figure}
+
+\pagebreak
+\subsection{Iteration 1 Policy Comparison between varying  $\dot{x}$}
+\begin{figure}[H]
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{Figures/3DI1PX-1.PNG}
+        \caption{Policy Actions with $\dot{x}=-1$.}
+        \label{fig:3DI1PX-1}
+    \end{minipage}
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{Figures/3DI1PX+1.PNG}
+        \caption{Policy Actions with $\dot{x}=+1$.}
+        \label{fig:3DI1PX+1}
+    \end{minipage}
+\end{figure}
+
+\pagebreak
+\subsection{Iteration 1 Comparison between Policy and MCTS when $\dot{\theta}$ is fixed at zero instead.}
+\begin{figure}[H]
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{Figures/3DI1PT.PNG}
+        \caption{The Policy Actions with $\dot{\theta}=0$.}
+        \label{fig:3DI1PT}
+    \end{minipage}
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{Figures/3DI1MT.PNG}
+        \caption{The MCTS Actions with $\dot{\theta}=0$.}
+        \label{fig:3DI1MT}
+    \end{minipage}
+\end{figure}
+
+Noticably x vs $\dot{x}$ is not linearly seperable for both the Policy predicted actions and the MCTS improved actions.
+
+\end{landscape}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{Figures/Values.PNG}
+    \caption{?}
+    \label{fig:Values}
+\end{figure}
+    
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{Figures/Actions.PNG}
+    \caption{?}
+    \label{fig:Actions}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{Figures/Losses.PNG}
+    \caption{?}
+    \label{fig:Losses}
+\end{figure}
+
+
 
 \end{document}
+
+

@@ -1,9 +1,8 @@
 from gym.envs.classic_control import CartPoleEnv  # CartPoleEnv is a module, not an attribute -> can't indirectly import
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm
-from utils import *
-from numba import jit, jitclass
+# from utils import *
+# from numba import jit, jitclass
 
 
 class CartPoleWrapper(CartPoleEnv):
@@ -32,14 +31,18 @@ class CartPoleWrapper(CartPoleEnv):
             [norm.ppf(edge, scale=scaling) for edge in np.linspace(0.001, 0.999, num=self.state_bins)])
         self.discount = 0.5
 
-        # define new actions:
+        # Actions, Reset range and loss weighting:
         self.action_space = [-1, 1]
+        self.reset_rng = 0.5  # +-rng around 0, when the state is normed (so x=[-1, 1], theta=[-1, 1]....)
+        self.loss_weights = [0.25, 0.1, 0.7, 1]  # multiply state by this to increase it's weighing compared to x
+        self.weight_norm = sum(self.loss_weights)  # increase this to increase the effect of the terminal cost
+        self.terminal_cost = -1
 
         # to stop episodes running over
         self.steps = 0
-        self.max_steps_beyond_done = 16
+        self.max_steps_beyond_done = 6
         self.extra_steps = 0  # counts up to max_steps once done is returned
-        self.max_till_done = 200
+        self.steps_till_done = 200
 
     def step(self, action, next_true_step=False):
         assert action in self.action_space, "%r (%s) invalid" % (action, type(action))
@@ -75,7 +78,7 @@ class CartPoleWrapper(CartPoleEnv):
 
         if next_true_step:
             self.steps += 1
-            if done or self.steps > self.max_till_done:
+            if done or self.steps > self.steps_till_done:
                 self.extra_steps += 1
                 done = False
             if self.extra_steps > self.max_steps_beyond_done:
@@ -86,13 +89,14 @@ class CartPoleWrapper(CartPoleEnv):
         return np.array(self.state), loss, done, {}
 
     def reset(self, init_state=None):
-        rand_obs = super().reset()  # call the base reset to do all of the other stuff
-        self.steps_beyond_done = -1  # stops an error logging if we go beyond done
 
         if init_state is None:
+            normed_obs = self.np_random.uniform(low=-self.reset_rng, high=self.reset_rng, size=(4,))
+            self.state = self.undo_normed_observation(normed_obs)
             self.steps = 0  # only want to reset steps if it is a true reset
             self.extra_steps = 0
-            return rand_obs
+            self.steps_beyond_done = None
+            return np.array(self.state)
 
         self.state = np.array(init_state)  # and then edit state if we want (state is a base class attribute)
         return self.state
@@ -103,7 +107,9 @@ class CartPoleWrapper(CartPoleEnv):
         even though it says state[3] = tip_vel in the docs, its actually ang_vel (since length = 1)
         max values are:        [+-2.4, inf, +-12 = +-0.21rad, inf]
         """
-        norm_obs = self.get_rounded_observation()
+        norm_obs = self.get_normed_observation()
+        # get the index of teh nearest bin edge. Since bin edges near 0 are closer, weighting is better
+        norm_obs = [np.abs(self.bin_edges - elm).argmin() for elm in norm_obs]  # bin the normed obs
         edges = np.linspace(-0.5, self.state_bins - 0.5, self.state_bins + 1)  # need extra to get [-0.5, ..., 24.5]
         new_pos, _, _ = np.histogram2d([norm_obs[2], ], [norm_obs[0], ], bins=(edges, edges))
 
@@ -123,17 +129,11 @@ class CartPoleWrapper(CartPoleEnv):
         # change the reward to -(x^2+theta^2). Technically a loss now
         done = abs(self.state[0]) > self.x_threshold or abs(self.state[2]) > self.theta_threshold_radians
         if done:
-            return -1  # -1 is the maximum loss possible
+            return self.terminal_cost  # -1 is the maximum loss possible (?)
 
-        return -0.5 * ((self.state[0] / self.x_threshold) ** 2 + (self.state[2] / self.theta_threshold_radians) ** 2)
-
-    @staticmethod
-    def get_action(action):
-        assert (action == 0 or action == 1)
-
-        if action == 0:
-            return np.array([1, 0])
-        return np.array([0, 1])
+        norm_obs = self.get_normed_observation()
+        weighted_states = [-w*(s**2)/self.weight_norm for w, s in zip(self.loss_weights, norm_obs)]
+        return sum(weighted_states)
 
     def get_observation(self):
         return self.state
@@ -141,16 +141,22 @@ class CartPoleWrapper(CartPoleEnv):
     def get_mcts_state(self, acc):
         return tuple([int(dim * acc) for dim in self.state])
 
-    def get_rounded_observation(self):
+    def get_normed_observation(self):
         # get the values to be roughly within +-1
         obs = [self.state[0] / self.x_threshold,
                self.state[1] / self.x_threshold,
                self.state[2] / self.theta_threshold_radians,
                self.state[3] / (self.theta_threshold_radians*10)  # when normed, this has a 10x wider range than others
                ]
-        # get the index of teh nearest bin edge. Since bin edges near 0 are closer, weighting is better
-        obs = [np.abs(self.bin_edges - elm).argmin() for elm in obs]  # should return the indexes of the norm.cdf
-        return tuple(obs)
+        return obs
+
+    def undo_normed_observation(self, obs):
+        unnormed_obs = [obs[0] * self.x_threshold,
+                       obs[1] * self.x_threshold,
+                       obs[2] * self.theta_threshold_radians,
+                       obs[3] * (self.theta_threshold_radians*10)  # when normed, this has a 10x wider range than others
+                       ]
+        return unnormed_obs
 
     def get_action_size(self):  # only works for discrete actions need to update!
         return len(self.action_space)
@@ -161,14 +167,6 @@ class CartPoleWrapper(CartPoleEnv):
 
     def get_state_2d_size(self):
         return self.state_bins, self.state_bins
-
-    def print_state_2d(self, state_2d):
-        plt.imshow(state_2d, extent=[-self.x_threshold, self.x_threshold, -self.theta_threshold_radians,
-                                     self.theta_threshold_radians], cmap='jet', aspect='auto')
-        plt.xlabel("X-Position")
-        plt.ylabel("Angular Position")
-        plt.colorbar()
-        plt.show()
 
 # env = CartPoleWrapper()
 # print(env.get_action(1))

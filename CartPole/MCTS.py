@@ -1,6 +1,6 @@
 import numpy as np
 EPS = 1e-8
-g_accuracy = 1e10
+g_accuracy = 1e12
 
 
 class MCTS:
@@ -33,7 +33,7 @@ class MCTS:
 
         curr_env.reset(observation)
         s = curr_env.get_mcts_state(g_accuracy)
-        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in self.env.action_space]
+        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in curr_env.action_space]
 
         if temp == 0:
             bestA = np.argmax(counts)
@@ -65,7 +65,7 @@ class MCTS:
 
         # ---------------- TERMINAL STATE ---------------
         if done:
-            return -1   # return value as if fallen over
+            return self.env.terminal_cost  # return value as if fallen over
 
         # ------------- EXPLORING FROM A LEAF NODE ----------------------
         # check if the state has been seen before. If not then assign Ps[s]

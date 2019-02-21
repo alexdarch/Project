@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
-from memory_profiler import profile
+# from memory_profiler import profile
 
 pargs = Utils({
     # ---------- Policy args ------------
@@ -17,11 +17,11 @@ pargs = Utils({
     'batch_size': 8,
     'cuda': torch.cuda.is_available(),
     'num_channels': 256,  # 512
-    'pareto': 0.3  # multiply action loss
+    'pareto': 0.2  # multiply action loss
 })
 
 
-class NetworkArchitecture(nn.Module):
+class NetworkArchitecture1(nn.Module):
     """
     This class specifies the base NeuralNet class. To define your own neural
     network, subclass this class and implement the functions below. The neural
@@ -95,7 +95,8 @@ class NetworkArchitecture(nn.Module):
 
         return nn.Sequential(*layers)
 
-class NetworkArchitecture1(nn.Module):
+
+class NetworkArchitecture(nn.Module):
     def __init__(self, policy_env):
         self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
         self.action_size = policy_env.get_action_size()  # o
@@ -118,13 +119,13 @@ class NetworkArchitecture1(nn.Module):
         s = x.view(-1, 1, self.x_size, self.y_size)  # converts [1, 25, 25] -> [1, 1, 25, 25]
         s = self.layer1(s)     # [1, 1, 25, 25] -> [1, 32, 12, 12]
         s = self.layer2(s)     # [1, 32, 12, 12] -> [1, 64, 6, 6]
-        s = s.reshape(s.size(0), -1) # [1, 64, 6, 6] -> [1, 2304]
+        s = s.reshape(s.size(0), -1)  # [1, 64, 6, 6] -> [1, 2304]
         s = self.drop_out(s)   # [1, 2304] -> [1, 2304]
         s = self.fc1(s)        # [1, 2304] -> [1, 1000]
         pi = self.action_layer(s)  # batch_size x action_size
         v = self.value_layer(s)  # batch_size x 1
 
-        return F.log_softmax(pi, dim=1), torch.tanh(v)
+        return F.log_softmax(pi, dim=1), -torch.sigmoid(v)
 
 
 class NeuralNet:
@@ -160,8 +161,10 @@ class NeuralNet:
                 # --------------- GET BATCHES -------------------
                 # randomise the batches (weird that this is done for each batch?
                 # why not take first 64 fom pre randomised batch etc)
-                sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
-                states_2d, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
+                # sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
+                # states_2d, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
+                idx = batch_idx*pargs.batch_size
+                states_2d, pis, vs = list(zip(*examples[idx:idx+pargs.batch_size+1]))
                 # convert to torch tensors
                 states_2d = torch.FloatTensor(np.array(states_2d).astype(np.float64))
                 target_pis = torch.FloatTensor(np.array(pis))
@@ -170,10 +173,9 @@ class NeuralNet:
                 # -------------- FEED FORWARD -------------------
                 if pargs.cuda:
                     states_2d, target_pis, target_vs = states_2d.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
-                states_2d, target_pis, target_vs = Variable(states_2d), Variable(target_pis), Variable(target_vs)
 
                 # -------------- COMPUTE LOSSES -----------------
-                out_pi, out_v = self.architecture.forward(states_2d)
+                out_pi, out_v = self.architecture(states_2d)
                 a_loss = self.loss_pi(target_pis, out_pi) * pargs.pareto
                 v_loss = self.loss_v(target_vs, out_v)
                 total_loss = a_loss + v_loss
