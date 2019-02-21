@@ -6,7 +6,7 @@ from CartPoleWrapper import CartPoleWrapper
 
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
-    'policyIters': 3,
+    'policyIters': 10,
     'trainEps': 20, #00,  # 20,
     'testEps': 10,   # 15,
     'numMCTSSims': 10,  # 15/20,
@@ -19,7 +19,7 @@ args = Utils({
     'load_model': False,
     'load_folder_file': ('NetCheckpoints', 'best.pth.tar'),
 
-    'policyItersForTrainExamplesHistory': 20,
+    'numItersForTrainExamplesHistory': 2,
     'maxlenOfQueue': 200000,
 })
 
