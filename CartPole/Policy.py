@@ -5,19 +5,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.autograd import Variable
 
 # from memory_profiler import profile
 
 pargs = Utils({
     # ---------- Policy args ------------
-    'lr': 0.001,
-    'dropout': 0.5,
-    'epochs': 1,
-    'batch_size': 8,
+    'lr': 0.0002,
+    'dropout': 0.3,
+    'epochs': 2,
+    'batch_size': 64,
     'cuda': torch.cuda.is_available(),
     'num_channels': 256,  # 512
-    'pareto': 0.2  # multiply action loss
+    'pareto': 1.5  # multiply action loss
 })
 
 
@@ -60,8 +59,9 @@ class ResNetworkArchitecture(nn.Module):
         )
         # </editor-fold>
 
-        # final layers
         self.action_layer = nn.Linear(self.layer2_output_size, self.action_size)
+
+        # final layers
         self.value_layer = nn.Linear(self.layer2_output_size, 1)
 
     def forward(self, s):
@@ -80,10 +80,10 @@ class ResNetworkArchitecture(nn.Module):
         s = self.linear_layer1(s)
         s = self.linear_layer2(s)
 
-        pi = self.action_layer(s)   # batch_size x action_size
+        pi = self.action_layer(s)
         v = self.value_layer(s)     # batch_size x 1
 
-        return F.log_softmax(pi, dim=1), torch.tanh(v)
+        return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
 
     def conv_layer(self, input_size, output_size, pad, pool_kernel=None):
         layers = [
@@ -105,29 +105,29 @@ class ConvNetworkArchitecture(nn.Module):
 
         super(ConvNetworkArchitecture, self).__init__()
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=5, stride=1, padding=2),
+            nn.Conv2d(1, 64, kernel_size=5, stride=1, padding=2),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         self.layer2 = nn.Sequential(
-            nn.Conv2d(32, 64, kernel_size=5, stride=1, padding=2),
+            nn.Conv2d(64, 256, kernel_size=3, stride=1, padding=2),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         self.drop_out = nn.Dropout()
-        self.fc1 = nn.Linear(6 * 6 * 64, 1000)
+        self.fc1 = nn.Linear(7 * 7 * 256, 1000)
         self.action_layer = nn.Linear(1000, self.action_size)
         self.value_layer = nn.Linear(1000, 1)
 
     def forward(self, x):
         s = x.view(-1, 1, self.x_size, self.y_size)  # converts [1, 25, 25] -> [1, 1, 25, 25]
-        s = self.layer1(s)     # [1, 1, 25, 25] -> [1, 32, 12, 12]
-        s = self.layer2(s)     # [1, 32, 12, 12] -> [1, 64, 6, 6]
-        s = s.reshape(s.size(0), -1)  # [1, 64, 6, 6] -> [1, 2304]
-        s = self.drop_out(s)   # [1, 2304] -> [1, 2304]
-        s = self.fc1(s)        # [1, 2304] -> [1, 1000]
+        s = self.layer1(s)     # [1, 1, 25, 25] -> [1, 64, 12, 12]
+        s = self.layer2(s)     # [1, 64, 12, 12] -> [1, 256, 7, 7]
+        s = s.reshape(s.size(0), -1)  # [1, 256, 7, 7] -> [1, 12544]
+        s = self.drop_out(s)   # [1, 12544] -> [1, 12544]
+        s = self.fc1(s)        # [1, 12544] -> [1, 1000]
         pi = self.action_layer(s)  # batch_size x action_size
-        v = self.value_layer(s)  # batch_size x 1
+        v = self.value_layer(s)
 
-        return F.log_softmax(pi, dim=1), -torch.sigmoid(v)
+        return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
 
 
 class StateNetworkArchitecture(torch.nn.Module):
@@ -185,14 +185,14 @@ class NeuralNet:
                       the given board, and v is its value. The examples has
                       board in its canonical form.
         """
-        optimizer = optim.Adam(self.architecture.parameters())
+        optimizer = optim.Adam(self.architecture.parameters(), lr=pargs.lr)
         a_losses, v_losses, tot_losses = [], [], []
 
         for epoch in range(pargs.epochs):
             self.architecture.train()    # set module in training mode
             batch_idx, start = 0, time.time()
-
             while batch_idx < int(len(examples)/pargs.batch_size):
+
                 # --------------- GET BATCHES -------------------
                 # Stochastic gradient descent -> pick a random sample
                 sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
@@ -205,18 +205,17 @@ class NeuralNet:
                 # -------------- FEED FORWARD -------------------
                 if pargs.cuda:
                     states_2d, target_pis, target_vs = states_2d.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
-                states_2d, target_pis, target_vs = Variable(states_2d), Variable(target_pis), Variable(target_vs)
-                out_pi, out_v = self.architecture(states_2d)
 
+                out_pi, out_v = self.architecture(states_2d)
                 # -------------- COMPUTE LOSSES -----------------
                 a_loss = self.loss_pi(target_pis, out_pi) * pargs.pareto
                 v_loss = self.loss_v(target_vs, out_v)
                 total_loss = a_loss + v_loss
 
                 # ---------- COMPUTE GRADS AND BACK-PROP ------------
-                optimizer.zero_grad()
                 total_loss.backward()
                 optimizer.step()
+                optimizer.zero_grad()
 
                 # store losses for writing to file
                 if pargs.cuda:
@@ -234,11 +233,7 @@ class NeuralNet:
                         int(len(examples) / pargs.batch_size)) + " BATCHES"
                 Utils.update_progress(tag, batch_idx / int(len(examples) / pargs.batch_size), time.time() - start)
 
-            if epoch+1 < pargs.epochs:
-                print("\r\r")  # print epoch training on a new line
-
         # record to CSV file
-
         losses = list(zip(a_losses, v_losses, tot_losses))
         with open(r'Data\NNetLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
@@ -264,15 +259,14 @@ class NeuralNet:
         # print(type(state))
         self.architecture.eval()
         pi, v = self.architecture.forward(state)
-        return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
+        return pi.data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
-    @staticmethod
-    def loss_pi(targets, outputs):
+    def loss_pi(self, targets, outputs):
         # the outputs are ln(p) already from log_softmax
-        return -torch.sum(targets*outputs)/targets.size()[0]
+        # return -torch.sum(targets*outputs)/targets.size()[0]
+        return torch.sum((targets.view(-1) - outputs.view(-1)) ** 2) /(targets.size()[0]*self.action_size)
 
-    @staticmethod
-    def loss_v(targets, outputs):
+    def loss_v(self, targets, outputs):
         return torch.sum((targets-outputs.view(-1))**2)/targets.size()[0]
 
     def save_net_architecture(self, folder='NetCheckpoints', filename='checkpoint.pth.tar'):

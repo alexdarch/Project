@@ -73,10 +73,11 @@ class MCTS:
         if done:
             if curr_env.steps >= curr_env.steps_till_done:
                 _, v = self.nnet.predict(state_2d)
-                print("done and got to the end at step: ", curr_env.steps, " and value: ", v)
+                # print("done and got to the end at step: ", curr_env.steps, " and value: ", v)
                 return v
             # print("Done, at step: ", curr_env.steps, " returning: ", curr_env.terminal_cost)
-            return curr_env.terminal_cost  # return value as if fallen over
+            # return value as if fallen over
+            return curr_env.terminal_cost * (curr_env.steps_till_done - curr_env.steps)
 
         # ------------- EXPLORING FROM A LEAF NODE ----------------------
         # check if the state has been seen before. If not then assign Ps[s]
