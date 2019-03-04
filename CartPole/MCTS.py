@@ -38,7 +38,7 @@ class MCTS:
         s = self.env.get_mcts_state(root_state, g_accuracy)
         # self.update_tree_values()  # only actually need to update these when showing the tree
 
-        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in self.env.action_space]
+        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.env.get_action_size())]
 
         if temp == 0:
             bestA = np.argmax(counts)
@@ -101,12 +101,12 @@ class MCTS:
         # ------------- GET BEST ACTION -----------------------------
         # search through the valid actions and update the UCB for all actions then update best actions
         # pick the action with the highest upper confidence bound
-        for a_idx, a in enumerate(self.env.action_space):
-            # action space is [-1, 1]... useful for Qsa which stores actions, but Ps stores pi, -> need to use a_idx
+        for a in range(self.env.get_action_size()):
+            # for cartpole the actions [0, 1] correspond to [-1, +1], but this is only  resolved in CartPoleWrapper
             if (s, a) in self.Qsa:
-                u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a_idx] * np.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)])
+                u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * np.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a)])
             else:
-                u = self.args.cpuct * self.Ps[s][a_idx] * np.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
+                u = self.args.cpuct * self.Ps[s][a] * np.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
 
             if u > cur_best:
                 cur_best = u

@@ -46,9 +46,10 @@ class CartPoleWrapper(CartPoleEnv):
         self.steps_till_done = 200
 
     def step(self, action, next_true_step=False):
-        assert action in self.action_space, "%r (%s) invalid" % (action, type(action))
+        assert action in range(self.get_action_size()), "%r (%s) invalid" % (action, type(action))
         state = self.state
         x, x_dot, theta, theta_dot = state
+        action = self.action_space[action]  # convert from [0, 1] -> [-1, 1]
         force = action * self.force_mag
 
         costheta = np.cos(theta)
@@ -176,10 +177,6 @@ class CartPoleWrapper(CartPoleEnv):
 
     def get_action_size(self):  # only works for discrete actions need to update!
         return len(self.action_space)
-
-    def get_greedy_action(self, pi):
-        idx = np.argmax(pi)
-        return self.action_space[idx]
 
     def get_state_2d_size(self):
         return 4, 1

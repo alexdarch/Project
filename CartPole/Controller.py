@@ -69,7 +69,7 @@ class Controller:
             example.append([state_2d, pi])
 
             # ---------- TAKE NEXT STEP PROBABILISTICALLY ---------------
-            action = np.random.choice(self.env.action_space, p=pi)  # take a random choice with pi probability for each action
+            action = np.random.choice(len(pi), p=pi)  # take a random choice with pi probability for each action
             observation, loss, done, info = self.env.step(action, next_true_step=True)
 
         # Convert Losses to expected losses (discounted into the future by self.max_steps_beyond_done)
@@ -170,8 +170,8 @@ class Controller:
             state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
             # pi = g_mcts.get_action_prob(state_2d, self.env, temp=0)  # MCTS improved policy
             pi, v = policy.predict(state_2d)
-            # action = np.random.choice(self.env.action_space, p=pi)
-            action = self.env.get_greedy_action(pi)
+            # action = np.random.choice(len(pi), p=pi)
+            action = np.argmax(pi)
             observation, loss, done, info = self.env.step(action, next_true_step=True)
             losses[counter] = loss
             counter += 1
