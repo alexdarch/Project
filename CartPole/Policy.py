@@ -155,12 +155,7 @@ class StateNetworkArchitecture(torch.nn.Module):
         pi = self.action_layer(s)  # batch_size x action_size
         v = self.value_layer(s)  # batch_size x 1
 
-        return F.log_softmax(pi, dim=1), -torch.sigmoid(v)
-
-
-        x = torch.tanh(self.linear1(x))
-        x = torch.tanh(self.linear2(x))
-        return self.linear3(x)
+        return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
 
 
 class NeuralNet:
@@ -168,7 +163,7 @@ class NeuralNet:
 
     def __init__(self, policy_env):
 
-        self.architecture = ResNetworkArchitecture(policy_env)  # pargs is a global variable so no need to pass in
+        self.architecture = StateNetworkArchitecture(policy_env)  # pargs is a global variable so no need to pass in
         self.x_size, self.y_size = policy_env.get_state_2d_size()
         self.action_size = policy_env.get_action_size()
 
@@ -254,7 +249,7 @@ class NeuralNet:
         state = torch.FloatTensor(state_2d.astype(np.float64))
         if pargs.cuda:
             state = state.contiguous().cuda()
-        state = state.view(1, self.x_size, self.x_size)
+        state = state.view(1, self.x_size, self.y_size)
 
         # print(type(state))
         self.architecture.eval()

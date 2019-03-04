@@ -1,5 +1,5 @@
 import sys
-# import cProfile, pstats, io
+import cProfile, pstats, io
 
 class Utils(dict):
     def __getattr__(self, name):

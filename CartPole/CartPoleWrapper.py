@@ -40,6 +40,7 @@ class CartPoleWrapper(CartPoleEnv):
 
         # to stop episodes running over
         self.steps = 0
+        self.mcts_steps = 0
         self.max_steps_beyond_done = 6
         self.extra_steps = 0  # counts up to max_steps once done is returned
         self.steps_till_done = 200
@@ -83,6 +84,8 @@ class CartPoleWrapper(CartPoleEnv):
                 done = False
             if self.extra_steps > self.max_steps_beyond_done:
                 done = True
+        else:
+            self.mcts_steps += 1
 
         # if it isn't a true step then return done if fallen over
         # -> doesn't stop the sim, but does add -1 to v in MCTS
@@ -94,9 +97,12 @@ class CartPoleWrapper(CartPoleEnv):
             normed_obs = self.np_random.uniform(low=-self.reset_rng, high=self.reset_rng, size=(4,))
             self.state = self.undo_normed_observation(normed_obs)
             self.steps = 0  # only want to reset steps if it is a true reset
+            self.mcts_steps = 0
             self.extra_steps = 0
             self.steps_beyond_done = None
             return np.array(self.state)
+        else:
+            self.mcts_steps = self.steps
 
         self.state = np.array(init_state)  # and then edit state if we want (state is a base class attribute)
         return self.state
@@ -108,7 +114,7 @@ class CartPoleWrapper(CartPoleEnv):
         max values are:        [+-2.4, inf, +-12 = +-0.21rad, inf]
         """
 
-        # return np.array(self.state)
+        return np.array(self.state)
 
         norm_obs = self.get_normed_observation()
         # get the index of teh nearest bin edge. Since bin edges near 0 are closer, weighting is better
@@ -128,28 +134,35 @@ class CartPoleWrapper(CartPoleEnv):
             prev_state_2d[prev_state_2d < 1 / (2 ** 9)] = 0
             return new_pos + self.discount * prev_state_2d
 
-    def state_loss(self):
+    def state_loss(self, state=None):
+        if state is None:
+            state = self.state
         # change the reward to -(x^2+theta^2). Technically a loss now
-        done = abs(self.state[0]) > self.x_threshold or abs(self.state[2]) > self.theta_threshold_radians
+        done = abs(state[0]) > self.x_threshold or abs(state[2]) > self.theta_threshold_radians
         if done:
             return self.terminal_cost  # -1 is the maximum loss possible (?)
 
-        norm_obs = self.get_normed_observation()
+        norm_obs = self.get_normed_observation(state)
         weighted_states = [-w*(s**2)/self.weight_norm for w, s in zip(self.loss_weights, norm_obs)]
         return sum(weighted_states)
 
-    def get_observation(self):
+    def get_state(self):
         return self.state
 
-    def get_mcts_state(self, acc):
-        return tuple([int(dim * acc) for dim in self.state])
+    def get_mcts_state(self, state, acc):
+        return tuple([int(dim * acc) for dim in state])
 
-    def get_normed_observation(self):
+    def round_state(self, state):
+        return str([round(dim, 2) for dim in state])
+
+    def get_normed_observation(self, state=None):
+        if state is None:
+            state = self.state
         # get the values to be roughly within +-1
-        obs = [self.state[0] / self.x_threshold,
-               self.state[1] / self.x_threshold,
-               self.state[2] / self.theta_threshold_radians,
-               self.state[3] / (self.theta_threshold_radians*10)  # when normed, this has a 10x wider range than others
+        obs = [state[0] / self.x_threshold,
+               state[1] / self.x_threshold,
+               state[2] / self.theta_threshold_radians,
+               state[3] / (self.theta_threshold_radians*10)  # when normed, this has a 10x wider range than others
                ]
         return obs
 
@@ -169,6 +182,7 @@ class CartPoleWrapper(CartPoleEnv):
         return self.action_space[idx]
 
     def get_state_2d_size(self):
+        return 4, 1
         return self.state_bins, self.state_bins
 
 # env = CartPoleWrapper()

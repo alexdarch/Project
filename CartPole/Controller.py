@@ -65,7 +65,7 @@ class Controller:
 
             # ---------- GET PROBABILITIES FOR EACH ACTION --------------
             temp = 1  # int(self.env.steps < self.args.tempThreshold)  # act greedily if after 15th step
-            pi = self.mcts.get_action_prob(state_2d, self.env, temp=temp)  # MCTS improved action-prob
+            pi = self.mcts.get_action_prob(state_2d, observation, temp=temp)  # MCTS improved action-prob
             example.append([state_2d, pi])
 
             # ---------- TAKE NEXT STEP PROBABILISTICALLY ---------------
@@ -120,7 +120,9 @@ class Controller:
                     Utils.update_progress("TRAINING EPISODES ITER: "+str(i)+" ep"+str(eps),
                                           eps/self.args.trainEps,
                                           time.time() - start)
-
+                if self.args.mctsTree:
+                    self.mcts.show_tree(values=True)
+                    return  # prevents us from overwriting the best model
                 np.savez_compressed(r'Data\TrainingExamples'+str(self.policy_iters)+'.npz', *[step[0] for step in policy_examples])  # pickle the state_2d's in a long dict
                 self.save_to_csv('TrainingExamples', policy_examples_to_csv)
                 self.policy_examples_history.append(policy_examples)  # list of deques
