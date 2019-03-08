@@ -6,6 +6,7 @@ Orthello
 Papers
 *.pickle
 *.ipynb_checkpoints
+Derivations/*
 CartPole/.idea
 CartPole/__pycache__
 CartPole/Data/*
