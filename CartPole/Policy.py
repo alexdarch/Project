@@ -142,6 +142,7 @@ class StateNetworkArchitecture(torch.nn.Module):
 
         self.drop_out = nn.Dropout()
         self.action_layer = nn.Linear(HIDDEN, self.action_size)
+        self.adversary_layer = nn.Linear(HIDDEN, self.action_size)
         self.value_layer = nn.Linear(HIDDEN, 1)
 
     def forward(self, x):
@@ -153,9 +154,10 @@ class StateNetworkArchitecture(torch.nn.Module):
         #s = self.drop_out(s)   # [1, 2304] -> [1, 2304]
         s = self.linear3(s)        # [1, 2304] -> [1, 1000]
         pi = self.action_layer(s)  # batch_size x action_size
+        adv_pi = self.adversary_layer(s)
         v = self.value_layer(s)  # batch_size x 1
 
-        return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
+        return F.softmax(pi, dim=1), F.softmax(adv_pi, dim=1), -1.0*torch.sigmoid(v)
 
 
 class NeuralNet:
@@ -181,7 +183,7 @@ class NeuralNet:
                       board in its canonical form.
         """
         optimizer = optim.Adam(self.architecture.parameters(), lr=pargs.lr)
-        a_losses, v_losses, tot_losses = [], [], []
+        a_losses, a_adv_losses, v_losses, tot_losses = [], [], [], []
 
         for epoch in range(pargs.epochs):
             self.architecture.train()    # set module in training mode
@@ -191,21 +193,24 @@ class NeuralNet:
                 # --------------- GET BATCHES -------------------
                 # Stochastic gradient descent -> pick a random sample
                 sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
-                states_2d, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
+                states_2d, pis, adv_pis, vs = list(zip(*[examples[i] for i in sample_ids]))
                 # convert to torch tensors
                 states_2d = torch.FloatTensor(np.array(states_2d).astype(np.float64))
                 target_pis = torch.FloatTensor(np.array(pis))
+                target_adv_pis = torch.FloatTensor(np.array(adv_pis))
                 target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
 
                 # -------------- FEED FORWARD -------------------
                 if pargs.cuda:
-                    states_2d, target_pis, target_vs = states_2d.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
+                    target_pis, target_adv_pis = target_pis.contiguous().cuda(), target_adv_pis.contiguous().cuda()
+                    states_2d, target_vs = states_2d.contiguous().cuda(), target_vs.contiguous().cuda()
 
-                out_pi, out_v = self.architecture(states_2d)
+                out_pi, out_adv_pi, out_v = self.architecture(states_2d)
                 # -------------- COMPUTE LOSSES -----------------
                 a_loss = self.loss_pi(target_pis, out_pi) * pargs.pareto
+                a_adv_loss = self.loss_pi(target_adv_pis, out_adv_pi) * pargs.pareto # should need the same pareto as a_loss?
                 v_loss = self.loss_v(target_vs, out_v)
-                total_loss = a_loss + v_loss
+                total_loss = a_loss + a_adv_loss + v_loss
 
                 # ---------- COMPUTE GRADS AND BACK-PROP ------------
                 total_loss.backward()
@@ -215,9 +220,11 @@ class NeuralNet:
                 # store losses for writing to file
                 if pargs.cuda:
                     a_loss = a_loss.cpu()
+                    a_adv_loss = a_adv_loss.cpu()
                     v_loss = v_loss.cpu()
                     total_loss = total_loss.cpu()
                 a_losses.append(a_loss.detach().numpy().tolist())  # if extend: 'float' object is not iterable
+                a_adv_losses.append(a_adv_loss.detach().numpy().tolist())
                 v_losses.append(v_loss.detach().numpy().tolist())
                 tot_losses.append(total_loss.detach().numpy().tolist())
 
@@ -229,7 +236,7 @@ class NeuralNet:
                 Utils.update_progress(tag, batch_idx / int(len(examples) / pargs.batch_size), time.time() - start)
 
         # record to CSV file
-        losses = list(zip(a_losses, v_losses, tot_losses))
+        losses = list(zip(a_losses, a_adv_losses, v_losses, tot_losses))
         with open(r'Data\NNetLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(losses)
@@ -253,8 +260,8 @@ class NeuralNet:
 
         # print(type(state))
         self.architecture.eval()
-        pi, v = self.architecture.forward(state)
-        return pi.data.cpu().numpy()[0], v.data.cpu().numpy()[0]
+        pi, adv_pi, v = self.architecture.forward(state)
+        return pi.data.cpu().numpy()[0], adv_pi.data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
     def loss_pi(self, targets, outputs):
         # the outputs are ln(p) already from log_softmax

@@ -9,7 +9,7 @@ Papers
 CartPole/.idea
 CartPole/__pycache__
 CartPole/Data/*
-ArchivedData/*
+ResultsAndTesting/ArchivedData/*
 CartPole/NetCheckpoints/*
 CartPole/PythonTesting.ipynb
 Figures

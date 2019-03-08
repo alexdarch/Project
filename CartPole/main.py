@@ -6,10 +6,10 @@ from CartPoleWrapper import CartPoleWrapper
 
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
-    'policyIters': 200,
-    'trainEps': 20,  # 20,
-    'testEps': 150,   # 15,
-    'numMCTSSims': 20,  # 15/20,
+    'policyIters': 100,
+    'trainEps': 50,  # 20,
+    'testEps': 500,   # 15,
+    'numMCTSSims': 25,  # 15/20,
     'tempThreshold': 15,
     'updateThreshold': 1.0,  # the best mean needs to be thresh x as good to stay as best
     'cpuct': 1.0,
@@ -20,7 +20,7 @@ args = Utils({
     'load_model': False,
     'load_folder_file': ('NetCheckpoints', 'best.pth.tar'),
 
-    'numItersForTrainExamplesHistory': 3,
+    'numItersForTrainExamplesHistory': 5,
     'maxlenOfQueue': 200000,
 })
 

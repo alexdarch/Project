@@ -60,17 +60,18 @@ class Controller:
             state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
             observations.append(observation)
             losses.append(loss)
-            policy_action, policy_value = self.nnet.predict(state_2d)
-            policy_predictions.append([policy_action.tolist(), policy_value.tolist()[0]])
+            policy_action, policy_adv_action, policy_value = self.nnet.predict(state_2d)
+            policy_predictions.append([policy_action.tolist(), policy_adv_action.tolist(), policy_value.tolist()[0]])
 
             # ---------- GET PROBABILITIES FOR EACH ACTION --------------
             temp = 1  # int(self.env.steps < self.args.tempThreshold)  # act greedily if after 15th step
-            pi = self.mcts.get_action_prob(state_2d, observation, temp=temp)  # MCTS improved action-prob
-            example.append([state_2d, pi])
+            pi_player, pi_adv = self.mcts.get_action_prob(state_2d, observation, temp=temp)  # MCTS improved action-prob
+            example.append([state_2d, pi_player, pi_adv])
 
             # ---------- TAKE NEXT STEP PROBABILISTICALLY ---------------
-            action = np.random.choice(len(pi), p=pi)  # take a random choice with pi probability for each action
-            observation, loss, done, info = self.env.step(action, next_true_step=True)
+            # take a random choice with pi probability for each action
+            actions = [np.random.choice(len(pi_player), p=pi_player), np.random.choice(len(pi_adv), p=pi_adv)]
+            observation, loss, done, info = self.env.step(*actions, next_true_step=True)
 
         # Convert Losses to expected losses (discounted into the future by self.max_steps_beyond_done)
         values = self.get_values_from_losses(losses)
@@ -111,10 +112,12 @@ class Controller:
                     # bookkeeping + plot progress
                     if len(example_episode) > self.args.keepAbove:
                         policy_examples.extend(example_episode)  # add recent episodes to the right
-                        policy_examples_to_csv.append([step[2] for step in example_episode])    # only save the value
-                        policy_examples_to_csv.append([step[1] for step in policy_predictions])  # and the policy-pred value
+                        policy_examples_to_csv.append([step[3] for step in example_episode])    # only save the value
+                        policy_examples_to_csv.append([step[2] for step in policy_predictions])  # and the policy-pred value
                         policy_examples_to_csv.append([step[1] for step in example_episode])    # save the MCTS actions
                         policy_examples_to_csv.append([step[0] for step in policy_predictions])    # save the policy action
+                        policy_examples_to_csv.append([step[2] for step in example_episode])  # only save the value
+                        policy_examples_to_csv.append([step[1] for step in policy_predictions])  # and the policy-pred value
                         policy_examples_to_csv.append(observations)    # save the observations
 
                     Utils.update_progress("TRAINING EPISODES ITER: "+str(i)+" ep"+str(eps),
@@ -169,10 +172,10 @@ class Controller:
         while not done:
             state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
             # pi = g_mcts.get_action_prob(state_2d, self.env, temp=0)  # MCTS improved policy
-            pi, v = policy.predict(state_2d)
+            pi, pi_adv, v = policy.predict(state_2d)
             # action = np.random.choice(len(pi), p=pi)
-            action = np.argmax(pi)
-            observation, loss, done, info = self.env.step(action, next_true_step=True)
+            a, a_adv = np.argmax(pi), np.argmax(pi_adv)
+            observation, loss, done, info = self.env.step(a, a_adv, next_true_step=True)
             losses[counter] = loss
             counter += 1
         return losses

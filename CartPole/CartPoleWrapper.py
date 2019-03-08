@@ -33,6 +33,7 @@ class CartPoleWrapper(CartPoleEnv):
 
         # Actions, Reset range and loss weighting:
         self.action_space = [-1, 1]
+        self.handicap = 0.02
         self.reset_rng = 0.5  # +-rng around 0, when the state is normed (so x=[-1, 1], theta=[-1, 1]....)
         self.loss_weights = [0.25, 0.1, 0.7, 1]  # multiply state by this to increase it's weighing compared to x
         self.weight_norm = sum(self.loss_weights)  # increase this to increase the effect of the terminal cost
@@ -45,30 +46,30 @@ class CartPoleWrapper(CartPoleEnv):
         self.extra_steps = 0  # counts up to max_steps once done is returned
         self.steps_till_done = 200
 
-    def step(self, action, next_true_step=False):
-        assert action in range(self.get_action_size()), "%r (%s) invalid" % (action, type(action))
+    def step(self, player_a, adv_a, next_true_step=False):
+        assert player_a in range(self.get_action_size()), "%r (%s) invalid player action" % (player_a,  type(player_a))
+        assert adv_a in range(self.get_action_size()), "%r (%s) invalid adversary action" % (adv_a, type(adv_a))
         state = self.state
         x, x_dot, theta, theta_dot = state
-        action = self.action_space[action]  # convert from [0, 1] -> [-1, 1]
-        force = action * self.force_mag
+        player_a = self.action_space[player_a]  # convert from [0, 1] -> [-1, 1]
+        adv_a = self.action_space[adv_a]
+        f_1 = player_a * self.force_mag
+        f_2 = self.handicap * adv_a * self.force_mag
 
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
-        temp = (force + self.polemass_length * theta_dot * theta_dot * sintheta) / self.total_mass
-        thetaacc = (self.gravity * sintheta - costheta * temp) / (
-                    self.length * (4.0 / 3.0 - self.masspole * costheta * costheta / self.total_mass))
-        xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
-        if self.kinematics_integrator == 'euler':
-            x = x + self.tau * x_dot
-            x_dot = x_dot + self.tau * xacc
-            theta = theta + self.tau * theta_dot
-            theta_dot = theta_dot + self.tau * thetaacc
-        else:  # semi-implicit euler
-            x_dot = x_dot + self.tau * xacc
-            x = x + self.tau * x_dot
-            theta_dot = theta_dot + self.tau * thetaacc
-            theta = theta + self.tau * theta_dot
+        temp = self.masspole * sintheta * (self.length * theta_dot**2 - self.gravity * costheta)
+        xacc = (f_1 + f_2 * np.cos(2*theta) + temp) / (self.masscart + self.masspole * sintheta**2)
+        thetaacc = (2*f_2*costheta + self.masspole*self.gravity*sintheta - self.masspole*xacc*costheta)\
+            / self.polemass_length
 
+        # euler integration
+        x = x + self.tau * x_dot
+        x_dot = x_dot + self.tau * xacc
+        theta = theta + self.tau * theta_dot
+        theta_dot = theta_dot + self.tau * thetaacc
+
+        # check if done
         self.state = (x, x_dot, theta, theta_dot)
         done = x < -self.x_threshold \
                or x > self.x_threshold \
@@ -84,9 +85,9 @@ class CartPoleWrapper(CartPoleEnv):
                 self.extra_steps += 1
                 done = False
             if self.extra_steps > self.max_steps_beyond_done:
-                done = True
+                done = True  # needed to find the value for the last step
         else:
-            self.mcts_steps += 1
+            self.mcts_steps += 1  # mcts doesnt get stopped until the true step > 200+max_steps_beyond_done
 
         # if it isn't a true step then return done if fallen over
         # -> doesn't stop the sim, but does add -1 to v in MCTS
