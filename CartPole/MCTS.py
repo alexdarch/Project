@@ -124,7 +124,6 @@ class MCTS:
                     u = self.Qsa[(s, a, a_adv)] + self.args.cpuct * self.Ps[s][player][a_adv] * np.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a, a_adv)])
                 else:
                     u = self.args.cpuct * self.Ps[s][player][a_adv] * np.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
-                # print(a, a_adv, u)
                 u_sum += u
             u_avg = u_sum/self.env.get_action_size()
             if u_avg > cur_best:
@@ -144,7 +143,6 @@ class MCTS:
                                 1 + self.Nsa[(s, a, a_adv)])
                 else:
                     u = self.args.cpuct * self.Ps[s][player][a] * np.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
-                #print(a_adv, a, u)
                 u_sum += u
             u_avg = u_sum / self.env.get_action_size()
             if u_avg > cur_best:  # choose the lowest u for the adversary

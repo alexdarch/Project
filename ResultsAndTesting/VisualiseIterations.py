@@ -1,4 +1,3 @@
-import VisualiseIteration
 from VisualiseIteration import VisualiseIteration
 import numpy as np
 import matplotlib.pyplot as plt
@@ -110,14 +109,14 @@ class VisualiseIterations:
 
     def plot_observation_histograms(self, iters=(0, 1, 2), normed=True):
         for itr in iters:
-            self.iters_data[itr].histogram_observations(normed)
+            self.iters_data[itr].plot_observations_histogram(normed)
 
     def plot_valuesvssteps(self, iters=(0, 1, 2), episodes='longest'):
         # fig, ax = te0.plot_episode(episode=3, colour='blue')
         max_eps = []
         for itr in iters:
             if episodes == 'longest':
-                max_eps.append(self.iters_data[itr].get_max_episode())
+                max_eps.append(self.iters_data[itr].iter_data.get_max_episode())
             if isinstance(episodes, list):
                 pass
 
@@ -130,7 +129,8 @@ class VisualiseIterations:
         max_eps = []
         for itr in iters:
             if episodes == 'longest':
-                max_eps.append(self.iters_data[itr].get_max_episode())
+                max_eps.append(self.iters_data[itr].iter_data.get_max_episode())
+                pass
             if isinstance(episodes, list):
                 pass
         # plot those episodes, one for the player and one for the adversary

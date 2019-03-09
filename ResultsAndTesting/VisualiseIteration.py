@@ -1,4 +1,3 @@
-import IterationData
 from IterationData import IterationData
 import numpy as np
 import matplotlib.pyplot as plt

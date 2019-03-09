@@ -6,12 +6,12 @@ from CartPoleWrapper import CartPoleWrapper
 
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
-    'policyIters': 100,
-    'trainEps': 50,  # 20,
+    'policyIters': 200,
+    'trainEps': 100,  # 20,
     'testEps': 500,   # 15,
-    'numMCTSSims': 25,  # 15/20,
+    'numMCTSSims': 35,  # 15/20,
     'tempThreshold': 15,
-    'updateThreshold': 1.0,  # the best mean needs to be thresh x as good to stay as best
+    'updateThreshold': 0,  # the best mean needs to be thresh x as good to stay as best
     'cpuct': 1.0,
     'keepAbove': 0,
     'mctsTree': False,

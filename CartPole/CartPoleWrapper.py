@@ -33,8 +33,8 @@ class CartPoleWrapper(CartPoleEnv):
 
         # Actions, Reset range and loss weighting:
         self.action_space = [-1, 1]
-        self.handicap = 0.02
-        self.reset_rng = 0.5  # +-rng around 0, when the state is normed (so x=[-1, 1], theta=[-1, 1]....)
+        self.handicap = 0.05
+        self.reset_rng = 0.3  # +-rng around 0, when the state is normed (so x=[-1, 1], theta=[-1, 1]....)
         self.loss_weights = [0.25, 0.1, 0.7, 1]  # multiply state by this to increase it's weighing compared to x
         self.weight_norm = sum(self.loss_weights)  # increase this to increase the effect of the terminal cost
         self.terminal_cost = -1
