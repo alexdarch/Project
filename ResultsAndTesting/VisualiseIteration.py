@@ -61,54 +61,36 @@ class VisualiseIteration:
 
         return axes
 
-    def add_axis_actionvsstep(self, episode=None, agent='player', colour='blue', axes=None):
+    def add_axis_actionvsstep(self, episode=None, colour='blue', axes=None):
 
-        assert agent == 'player' or agent == 'adversary' or agent == 'both', 'Not a valid agent'
         if episode is None:
             episode = self.iter_data.get_max_episode()
-
-        if agent == 'player' or agent == 'both':
-            policy_actions = self.iter_data.episode_data['Episode' + str(episode)].PolicyAction.values
-            mcts_actions = self.iter_data.episode_data['Episode' + str(episode)].MCTSAction.values
-        else:
-            policy_actions = self.iter_data.episode_data['Episode' + str(episode)].PolicyAdv.values
-            mcts_actions = self.iter_data.episode_data['Episode' + str(episode)].MCTSAdv.values
-
-        policy_actions = list(zip(*policy_actions))[self.default_action]
-        mcts_actions = list(zip(*mcts_actions))[self.default_action]
-
         # check if subplots already exist
-        rows = 2 if agent == 'both' else 1
         if axes is None:
-            fig, axes = plt.subplots(ncols=1, nrows=rows, figsize=(17, rows * 7))
-        axes1 = axes[0] if agent == 'both' else axes
+            fig, axes = plt.subplots(ncols=1, nrows=2, figsize=(17, 2 * 7))
+        assert isinstance(axes, np.ndarray) and len(axes) == 2, " Not enough Axes"
 
-        axes1.plot(policy_actions, color=colour, linestyle='--',
-                   label='Policy {:s} Actions, Iter: {} Ep: {}'.format(agent, self.iter, episode))
-        axes1.plot(mcts_actions, color=colour, linestyle='-',
-                   label='MCTS {:s} Actions, Iter: {} Ep: {}'.format(agent, self.iter, episode))
-        axes1.legend()
-        axes1.set_ylabel(self.action_names[self.default_action] + ' probability')
-        axes1.set_xlabel('Steps')
+        # ----- Extract Data -----
+        policy_player = self.iter_data.episode_data['Episode' + str(episode)].PolicyAction.values
+        mcts_player = self.iter_data.episode_data['Episode' + str(episode)].MCTSAction.values
+        policy_adversary = self.iter_data.episode_data['Episode' + str(episode)].PolicyAdv.values
+        mcts_adversary = self.iter_data.episode_data['Episode' + str(episode)].MCTSAdv.values
 
-        if agent == 'both':
-            axes2 = axes[1]
-            policy_adv = self.iter_data.episode_data['Episode' + str(episode)].PolicyAdv.values
-            mcts_adv = self.iter_data.episode_data['Episode' + str(episode)].MCTSAdv.values
+        policy_actions = [list(zip(*policy_player))[self.default_action], list(zip(*policy_adversary))[self.default_action]]
+        mcts_actions = [list(zip(*mcts_player))[self.default_action], list(zip(*mcts_adversary))[self.default_action]]
+        agent = ['Player', 'Adversary']
 
-            policy_adv = list(zip(*policy_adv))[self.default_action]
-            mcts_adv = list(zip(*mcts_adv))[self.default_action]
+        # ----- And Plot on Axes -----
+        for axis in range(len(axes)):
+            axes[axis].plot(policy_actions[axis], color=colour, linestyle='--',
+                       label='{:s}\'s Policy Actions, Iter: {} Ep: {}'.format(agent[axis], self.iter, episode))
+            axes[axis].plot(mcts_actions[axis], color=colour, linestyle='-',
+                       label='{:s}\'s MCTS Actions, Iter: {} Ep: {}'.format(agent[axis], self.iter, episode))
+            axes[axis].legend()
+            axes[axis].set_ylabel('Probability of {} Pushing {}'.format(agent[axis], self.action_names[self.default_action]))
+            axes[axis].set_xlabel('Steps')
 
-            axes2.plot(policy_adv, color=colour, linestyle='--',
-                       label='Policy {} Actions, Iter: {} Ep: {}'.format(agent, self.iter, episode))
-            axes2.plot(mcts_adv, color=colour, linestyle='-',
-                       label='MCTS {} Actions, Iter: {} Ep: {}'.format(agent, self.iter, episode))
-            axes2.legend()
-            axes2.set_ylabel(self.action_names[self.default_action] + ' probability')
-            axes2.set_xlabel('Steps')
-            axes1 = [axes1, axes2]
-
-        return axes1
+        return axes
 
     def get_episode_value_stats(self):
         averages = -1 * np.ones((200 + 1,))
@@ -179,7 +161,7 @@ class VisualiseIteration:
         player_actions = list(zip(*self.iter_data.all_data[player_act].values))[self.default_action]
         adv_actions = list(zip(*self.iter_data.all_data[adv_act].values))[self.default_action]
 
-        obs = list(zip(*self.all_data['Observation'].values))
+        obs = list(zip(*self.iter_data.all_data['Observation'].values))
         state_2ds = self.iter_data.all_data['State2D'].values
         obs0, obs1, obs2, obs3 = np.array(obs[0]), np.array(obs[1]), np.array(obs[2]), np.array(obs[3])
 
@@ -190,8 +172,8 @@ class VisualiseIteration:
         filtered_adv = np.array(adv_actions)[is_near_x_dot & is_near_theta_dot]
         filtered_states = np.array(state_2ds)[is_near_x_dot & is_near_theta_dot]
 
-        for idx, step in enumerate(filtered_states):
-            state_2d = self.state_2ds[step]
+        for idx, arr_num in enumerate(filtered_states):
+            state_2d = self.iter_data.state_2ds[arr_num]
             row, column = np.unravel_index(np.argmax(state_2d, axis=None),
                                            shape)  # get the index of the current element
 
@@ -205,6 +187,13 @@ class VisualiseIteration:
         adv_probs = np.true_divide(adv_probs, adv_counter)
         return player_probs, adv_probs
 
+    def get_action_correlations(self, plot_scatter=True):
+        player_actions = list(zip(*self.iter_data.all_data['PolicyAction']))[self.default_action]
+        adv_actions = list(zip(*self.iter_data.all_data['PolicyAdv']))[self.default_action]
+
+        plt.scatter(player_actions, adv_actions)
+        correlation = np.corrcoef(player_actions, adv_actions)[0][1]  # take a non-diagonal element
+
     def add_axis_actionprobvsstate(self, prob_array, axes, agent='player', vs=(0.2, 0.8)):
 
         image = axes.imshow(prob_array, vmin=vs[0], vmax=vs[1],
@@ -213,7 +202,7 @@ class VisualiseIteration:
                             cmap='jet', aspect='auto')
         axes.set_xlabel("X-Position")
         axes.set_ylabel("Angular Position")
-        axes.set_title('Probability of ' + agent + ' Choosing Left vs Position')
+        axes.set_title('Probability of ' + agent + ' Pushing Left vs Position')
 
     def plot_state_2d(self, episode, step):
         # Plot MCTS action, action policy and values associated?

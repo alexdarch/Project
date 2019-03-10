@@ -33,7 +33,7 @@ class CartPoleWrapper(CartPoleEnv):
 
         # Actions, Reset range and loss weighting:
         self.action_space = [-1, 1]
-        self.handicap = 0.05
+        self.handicap = 0 # 0.05
         self.reset_rng = 0.3  # +-rng around 0, when the state is normed (so x=[-1, 1], theta=[-1, 1]....)
         self.loss_weights = [0.25, 0.1, 0.7, 1]  # multiply state by this to increase it's weighing compared to x
         self.weight_norm = sum(self.loss_weights)  # increase this to increase the effect of the terminal cost
@@ -93,10 +93,12 @@ class CartPoleWrapper(CartPoleEnv):
         # -> doesn't stop the sim, but does add -1 to v in MCTS
         return np.array(self.state), loss, done, {}
 
-    def reset(self, init_state=None):
+    def reset(self, init_state=None, reset_rng=None):
 
         if init_state is None:
-            normed_obs = self.np_random.uniform(low=-self.reset_rng, high=self.reset_rng, size=(4,))
+            rng = self.reset_rng if reset_rng is None else reset_rng
+
+            normed_obs = self.np_random.uniform(low=-rng, high=self.reset_rng, size=(4,))
             self.state = self.undo_normed_observation(normed_obs)
             self.steps = 0  # only want to reset steps if it is a true reset
             self.mcts_steps = 0

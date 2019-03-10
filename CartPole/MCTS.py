@@ -121,7 +121,7 @@ class MCTS:
             for a_adv in range(self.env.get_action_size()):
                 # for cartpole the actions [0, 1] correspond to [-1, +1], but this is only  resolved in CartPoleWrapper
                 if (s, a, a_adv) in self.Qsa:
-                    u = self.Qsa[(s, a, a_adv)] + self.args.cpuct * self.Ps[s][player][a_adv] * np.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a, a_adv)])
+                    u = self.Qsa[(s, a, a_adv)] + self.args.cpuct * self.Ps[s][player][a] * np.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a, a_adv)])
                 else:
                     u = self.args.cpuct * self.Ps[s][player][a_adv] * np.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
                 u_sum += u
@@ -139,7 +139,7 @@ class MCTS:
             for a in range(self.env.get_action_size()):
                 # for cartpole the actions [0, 1] correspond to [-1, +1], but this is only  resolved in CartPoleWrapper
                 if (s, a, a_adv) in self.Qsa:
-                    u = -self.Qsa[(s, a, a_adv)] + self.args.cpuct * self.Ps[s][player][a] * np.sqrt(self.Ns[s]) / (
+                    u = -self.Qsa[(s, a, a_adv)] + self.args.cpuct * self.Ps[s][player][a_adv] * np.sqrt(self.Ns[s]) / (
                                 1 + self.Nsa[(s, a, a_adv)])
                 else:
                     u = self.args.cpuct * self.Ps[s][player][a] * np.sqrt(self.Ns[s] + EPS)  # Q = 0 ?

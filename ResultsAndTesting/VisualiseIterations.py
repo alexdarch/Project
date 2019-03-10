@@ -72,7 +72,7 @@ class VisualiseIterations:
 
         print("There are ", self.iterations, " iterations stored in self.iterations")
 
-    def plot_valuevsstep(self, iters=(0, 1, 2), plot_stds=False, plot_all_eps=False):
+    def plot_episode_statsvsstep(self, iters=(0, 1, 2), plot_stds=False, plot_all_eps=False):
         assert all(i < self.iterations for i in iters), "Some iterations are not valid!"
 
         fig = plt.figure(figsize=(17, 7))
@@ -123,7 +123,7 @@ class VisualiseIterations:
         # keep plotting iterations on the same axis
         fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(17, 7))
         for idx, itr in enumerate(iters):
-            ax = self.iters_data[itr].add_axis_valuevsstep(max_eps[idx], itr, colour_list[idx], ax)
+            ax = self.iters_data[itr].add_axis_valuevsstep(max_eps[idx], colour_list[idx], ax)
 
     def plot_actionsvssteps(self, iters=(0, 1, 2), episodes='longest'):
         max_eps = []
@@ -136,7 +136,7 @@ class VisualiseIterations:
         # plot those episodes, one for the player and one for the adversary
         fig, ax = plt.subplots(ncols=1, nrows=2, figsize=(17, 2 * 7))
         for idx, itr in enumerate(iters):
-            ax = self.iters_data[itr].add_axis_actionvsstep(max_eps[idx], 'player', colour_list[idx], ax)
+            ax = self.iters_data[itr].add_axis_actionvsstep(max_eps[idx], colour_list[idx], ax)
 
     def plot_actionprobsvsstates(self, iters=(0, 1, 2), policy=True, x_dot_fixed=0, theta_dot_fixed=0, bin_prop=0.05,
                                  colourbar_lims=(0, 1)):

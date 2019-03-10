@@ -1,4 +1,5 @@
 from MCTS import MCTS
+from Evaluate import Evaluate
 import numpy as np
 from collections import deque
 from utils import *
@@ -31,8 +32,7 @@ class Controller:
 
         # -------- POLICY STATS ----------
         self.policy_iters = 0
-        self.best_policy_stats = {'mean': np.nan, 'avg_length': np.nan}
-        self.challenger_policy_stats = {'mean': np.nan, 'avg_length': np.nan}
+
 
         # ------- CONSTS AFFECTING THE VALUE FUNCTION ----------
         self.max_steps_beyond_done = self.env.max_steps_beyond_done
@@ -107,18 +107,13 @@ class Controller:
                 # Generate a new batch of episodes based on current net
                 for eps in range(1, self.args.trainEps+1):
                     self.mcts = MCTS(self.env, self.nnet, self.args)  # reset search tree
-                    example_episode, observations, policy_predictions = self.execute_episode()  # ought to return both the value and predicted value + MCTS-action and Policy Action
+                    example_episode, observations, policy_predictions = self.execute_episode()
 
                     # bookkeeping + plot progress
                     if len(example_episode) > self.args.keepAbove:
                         policy_examples.extend(example_episode)  # add recent episodes to the right
-                        policy_examples_to_csv.append([step[3] for step in example_episode])    # only save the value
-                        policy_examples_to_csv.append([step[2] for step in policy_predictions])  # and the policy-pred value
-                        policy_examples_to_csv.append([step[1] for step in example_episode])    # save the MCTS actions
-                        policy_examples_to_csv.append([step[0] for step in policy_predictions])    # save the policy action
-                        policy_examples_to_csv.append([step[2] for step in example_episode])  # only save the value
-                        policy_examples_to_csv.append([step[1] for step in policy_predictions])  # and the policy-pred value
-                        policy_examples_to_csv.append(observations)    # save the observations
+                        policy_examples_to_csv = self.update_csv_examples(policy_examples_to_csv, example_episode,
+                                                                          policy_predictions, observations)
 
                     Utils.update_progress("TRAINING EPISODES ITER: "+str(i)+" ep"+str(eps),
                                           eps/self.args.trainEps,
@@ -146,8 +141,15 @@ class Controller:
             self.challenger_nnet.load_net_architecture(folder=self.args.checkpoint_folder, filename='temp.pth.tar')
             self.challenger_nnet.train_policy(examples=examples_for_training)
 
+            challenger_mcts = MCTS(self.env, self.challenger_nnet, self.args)
+            current_mcts = MCTS(self.env, self.nnet, self.args)
+
+            eval = Evaluate(lambda s2d, root: np.argmax(current_mcts.get_action_prob(s2d, root, temp=0), axis=1),
+                          lambda s2d, root: np.argmax(challenger_mcts.get_action_prob(s2d, root, temp=0), axis=1), self.env)
+            pwins, nwins, draws = eval.run_episodes(self.args.testEps)
+
             # ------------------------- COMPARE POLICIES AND UPDATE ---------------------------------
-            update = self.policy_improvement()
+            update = True
             if update:
                 self.nnet = deepcopy(self.challenger_nnet)
                 # if we are updating then the challenger nnet is the best nnet. Also checkpoint
@@ -162,82 +164,6 @@ class Controller:
                 # note, if there are two PI's in a row and no update then these aren't saved - only previous best ones
             self.policy_iters += 1
 
-    def test_episode(self, policy):
-        # No self play yet!!
-        losses = -1*np.ones((self.env.max_steps_beyond_done+self.env.steps_till_done+1, ), dtype=float)
-        observation = self.env.reset()
-        counter, done = 0, False
-        state_2d = self.env.get_state_2d()
-
-        while not done:
-            state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
-            # pi = g_mcts.get_action_prob(state_2d, self.env, temp=0)  # MCTS improved policy
-            pi, pi_adv, v = policy.predict(state_2d)
-            # action = np.random.choice(len(pi), p=pi)
-            a, a_adv = np.argmax(pi), np.argmax(pi_adv)
-            observation, loss, done, info = self.env.step(a, a_adv, next_true_step=True)
-            losses[counter] = loss
-            counter += 1
-        return losses
-
-    def policy_improvement(self):
-        """
-        Compares self.challenger_nnet and self.nnet by comparing the means and medians of played episodes
-        returns: update = True/False depending on whether some condition is met.
-        """
-        update = False
-
-        if self.policy_iters == 0:
-            init_start = time.time()
-            init_losses, init_length = [], []
-            for n in range(1, self.args.testEps + 1):
-                # ---- Play an episode with the current policy ----
-                init_ep = self.test_episode(self.nnet)
-                init_losses.append(init_ep)
-                init_length.append(len(init_ep[init_ep > -1]))
-                Utils.update_progress("INITIAL POLICY TEST EPISODES, ep" + str(n),
-                                      n / self.args.testEps, time.time() - init_start)
-
-            # calculate the mean of the list of lists
-            list_of_sums = [sum(s1) for s1 in init_losses]
-            list_of_lens = [len(l1) for l1 in init_losses]
-            self.best_policy_stats['mean'] = sum(list_of_sums) / sum(list_of_lens)
-            self.best_policy_stats['avg_length'] = sum(init_length)/self.args.testEps
-            self.save_to_csv('InitialLosses', init_losses)
-
-        # ------ PLAY EPISODES WITH CHALLENGER POLICIES ------------
-        chal_losses, chal_lengths = [], []
-        start = time.time()
-        for n in range(1, self.args.testEps+1):
-            chal_ep = self.test_episode(self.challenger_nnet)
-            chal_losses.append(chal_ep)
-            chal_lengths.append(len(chal_ep[chal_ep > -1]))
-            Utils.update_progress("CHALLENGER POLICIES TEST EPISODES, ep"+str(n),
-                                  n / self.args.testEps, time.time() - start)
-
-        # calculate the mean of the list of lists
-        list_of_sums = [sum(s1) for s1 in chal_losses]
-        list_of_lens = [len(l1) for l1 in chal_losses]  # these should all be 200
-        self.challenger_policy_stats['mean'] = sum(list_of_sums)/sum(list_of_lens)
-        self.challenger_policy_stats['avg_length'] = sum(chal_lengths)/self.args.testEps
-        self.save_to_csv('ChallengerLosses', chal_losses)
-
-        # ---------- COMPARE NEURAL NETS AND DETERMINE WHETHER TO UPDATE -----------
-        # means are -ve, we want the number closest to zero -> chal > curr.
-        # Multiplying by 0.95 gets curr -> 0, so better
-        if self.challenger_policy_stats['avg_length'] > self.args.updateThreshold*self.best_policy_stats['avg_length']:
-            print("UPDATING NEW POLICY FROM avg_length = ", self.best_policy_stats['avg_length'],
-                  "\t TO avg_length = ", self.challenger_policy_stats['avg_length'], "\n")
-
-            update = True
-            self.save_to_csv('BestLosses', chal_losses)
-            self.best_policy_stats['avg_length'] = self.challenger_policy_stats['avg_length']
-        else:
-            print("REJECTING NEW POLICY WITH avg_length = ", self.challenger_policy_stats['avg_length'],
-                  "\t AS THE CURRENT avg_length IS = ", self.best_policy_stats['avg_length'], "\n")
-
-        return update
-
     def save_to_csv(self, file_name, data):
         # maybe add some unpickling for saving whole examples? or to a different function
         file_path = os.path.join('Data', file_name + str(self.policy_iters))
@@ -245,3 +171,14 @@ class Controller:
             writer = csv.writer(f)
 
             writer.writerows(data)
+
+    @staticmethod
+    def update_csv_examples(policy_examples_to_csv, example_episode, policy_predictions, observations):
+        policy_examples_to_csv.append([step[3] for step in example_episode])  # only save the value
+        policy_examples_to_csv.append([step[2] for step in policy_predictions])  # and the policy-pred value
+        policy_examples_to_csv.append([step[1] for step in example_episode])  # save the MCTS actions
+        policy_examples_to_csv.append([step[0] for step in policy_predictions])  # save the policy action
+        policy_examples_to_csv.append([step[2] for step in example_episode])  # only save the value
+        policy_examples_to_csv.append([step[1] for step in policy_predictions])  # and the policy-pred value
+        policy_examples_to_csv.append(observations)  # save the observations
+        return policy_examples_to_csv
