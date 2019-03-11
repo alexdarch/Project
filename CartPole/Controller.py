@@ -32,7 +32,7 @@ class Controller:
 
         # -------- POLICY STATS ----------
         self.policy_iters = 0
-
+        self.current_elo = 1000
 
         # ------- CONSTS AFFECTING THE VALUE FUNCTION ----------
         self.max_steps_beyond_done = self.env.max_steps_beyond_done
@@ -43,12 +43,12 @@ class Controller:
     def execute_episode(self):
 
         """
-        This function executes one episode of self-play, starting with player 1. As the game is played, each turn
-        is added as a training example to trainExamples. The game is played till the game ends. After the game
-        ends, the outcome of the game is used to assign values to each example in trainExamples.
+        This function executes one episode of self-play, with both players acting simultaneously.
+        As the game is played, each step is added as a training example to trainExamples. The game is played until
+        it reachs max_steps_till_done. After the game finishes, values are calculated from the losses.
         It uses a temp=1 if episodeStep < tempThreshold, and thereafter uses temp=0.
         Returns:
-            trainExamples: a list of examples of the form (state_2d, pi, v). pi is the MCTS informed policy
+            trainExamples: a list of examples of the form (state_2d, pi, pi_adv, v). pi is the MCTS informed policy
                             vector, v is the value defined as an expected future loss, E[L].
         """
         example, observations, losses, policy_predictions = [], [], [], []
@@ -114,7 +114,6 @@ class Controller:
                         policy_examples.extend(example_episode)  # add recent episodes to the right
                         policy_examples_to_csv = self.update_csv_examples(policy_examples_to_csv, example_episode,
                                                                           policy_predictions, observations)
-
                     Utils.update_progress("TRAINING EPISODES ITER: "+str(i)+" ep"+str(eps),
                                           eps/self.args.trainEps,
                                           time.time() - start)
@@ -145,8 +144,10 @@ class Controller:
             current_mcts = MCTS(self.env, self.nnet, self.args)
 
             eval = Evaluate(lambda s2d, root: np.argmax(current_mcts.get_action_prob(s2d, root, temp=0), axis=1),
-                          lambda s2d, root: np.argmax(challenger_mcts.get_action_prob(s2d, root, temp=0), axis=1), self.env)
-            pwins, nwins, draws = eval.run_episodes(self.args.testEps)
+                          lambda s2d, root: np.argmax(challenger_mcts.get_action_prob(s2d, root, temp=0), axis=1),
+                            self.env, self.current_elo)
+            self.current_elo = eval.evaluate_policies(self.args.testEps)
+            print(self.current_elo)
 
             # ------------------------- COMPARE POLICIES AND UPDATE ---------------------------------
             update = True
@@ -159,7 +160,7 @@ class Controller:
                                                 filename='best.pth.tar')
             else:
                 # if we didnt update then just reload the nnet we saved before training (though this should do nothing)
-                self.nnet.load_net_architecture(folder=self.args.checkpoint_folder,
+                self.challenger_nnet.load_net_architecture(folder=self.args.checkpoint_folder,
                                                 filename='temp.pth.tar')
                 # note, if there are two PI's in a row and no update then these aren't saved - only previous best ones
             self.policy_iters += 1

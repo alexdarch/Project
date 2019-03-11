@@ -138,6 +138,10 @@ class VisualiseIterations:
         for idx, itr in enumerate(iters):
             ax = self.iters_data[itr].add_axis_actionvsstep(max_eps[idx], colour_list[idx], ax)
 
+    def plot_playervsadversary(self, iters=(0, 1, 2,)):
+        for itr in iters:
+            self.iters_data[itr].plot_action_correlations()
+
     def plot_actionprobsvsstates(self, iters=(0, 1, 2), policy=True, x_dot_fixed=0, theta_dot_fixed=0, bin_prop=0.05,
                                  colourbar_lims=(0, 1)):
         assert all(i < self.iterations for i in iters), "Some iterations are not valid!"

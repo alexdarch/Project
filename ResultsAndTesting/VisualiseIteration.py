@@ -1,6 +1,8 @@
 from IterationData import IterationData
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, DotProduct, Product, WhiteKernel, Sum
 # get a list of all the colour strings in matplotlib so we can iterate through them
 from matplotlib import colors as mcolors
 colors = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)
@@ -76,18 +78,20 @@ class VisualiseIteration:
         policy_adversary = self.iter_data.episode_data['Episode' + str(episode)].PolicyAdv.values
         mcts_adversary = self.iter_data.episode_data['Episode' + str(episode)].MCTSAdv.values
 
-        policy_actions = [list(zip(*policy_player))[self.default_action], list(zip(*policy_adversary))[self.default_action]]
+        policy_actions = [list(zip(*policy_player))[self.default_action],
+                          list(zip(*policy_adversary))[self.default_action]]
         mcts_actions = [list(zip(*mcts_player))[self.default_action], list(zip(*mcts_adversary))[self.default_action]]
         agent = ['Player', 'Adversary']
 
         # ----- And Plot on Axes -----
         for axis in range(len(axes)):
             axes[axis].plot(policy_actions[axis], color=colour, linestyle='--',
-                       label='{:s}\'s Policy Actions, Iter: {} Ep: {}'.format(agent[axis], self.iter, episode))
+                            label='{:s}\'s Policy Actions, Iter: {} Ep: {}'.format(agent[axis], self.iter, episode))
             axes[axis].plot(mcts_actions[axis], color=colour, linestyle='-',
-                       label='{:s}\'s MCTS Actions, Iter: {} Ep: {}'.format(agent[axis], self.iter, episode))
+                            label='{:s}\'s MCTS Actions, Iter: {} Ep: {}'.format(agent[axis], self.iter, episode))
             axes[axis].legend()
-            axes[axis].set_ylabel('Probability of {} Pushing {}'.format(agent[axis], self.action_names[self.default_action]))
+            axes[axis].set_ylabel(
+                'Probability of {} Pushing {}'.format(agent[axis], self.action_names[self.default_action]))
             axes[axis].set_xlabel('Steps')
 
         return axes
@@ -167,7 +171,7 @@ class VisualiseIteration:
 
         is_near_x_dot = (obs1 > x_dot_fixed - x_dot_bin_size) & (obs1 < x_dot_fixed + x_dot_bin_size)
         is_near_theta_dot = (obs3 > theta_dot_fixed - theta_dot_bin_size) & (
-                    obs3 < theta_dot_fixed + theta_dot_bin_size)
+                obs3 < theta_dot_fixed + theta_dot_bin_size)
         filtered_player = np.array(player_actions)[is_near_x_dot & is_near_theta_dot]
         filtered_adv = np.array(adv_actions)[is_near_x_dot & is_near_theta_dot]
         filtered_states = np.array(state_2ds)[is_near_x_dot & is_near_theta_dot]
@@ -187,12 +191,56 @@ class VisualiseIteration:
         adv_probs = np.true_divide(adv_probs, adv_counter)
         return player_probs, adv_probs
 
-    def get_action_correlations(self, plot_scatter=True):
-        player_actions = list(zip(*self.iter_data.all_data['PolicyAction']))[self.default_action]
-        adv_actions = list(zip(*self.iter_data.all_data['PolicyAdv']))[self.default_action]
+    def plot_action_correlations(self):
 
-        plt.scatter(player_actions, adv_actions)
-        correlation = np.corrcoef(player_actions, adv_actions)[0][1]  # take a non-diagonal element
+        # get data into right format
+        player_policy = list(zip(*self.iter_data.all_data['PolicyAction']))[self.default_action]
+        adv_policy = list(zip(*self.iter_data.all_data['PolicyAdv']))[self.default_action]
+        player_mcts = list(zip(*self.iter_data.all_data['MCTSAction']))[self.default_action]
+        adv_mcts = list(zip(*self.iter_data.all_data['MCTSAdv']))[self.default_action]
+        player_policy, adv_policy = np.array(player_policy), np.array(adv_policy)
+        player_mcts, adv_mcts = np.array(player_mcts), np.array(adv_mcts)
+
+        # Instantiate a Gaussian Process model, note DotProduct is just <x, y> == Rotation of linear kernel therefore good for this
+        # kernel = Sum(DotProduct(sigma_0=0.1), WhiteKernel(noise_level=0.1))
+        kernel = Sum(Product(DotProduct(sigma_0=0.1), RBF(0.1, (1e-2, 1e1))), WhiteKernel(noise_level=0.5))
+        gp_policy = GaussianProcessRegressor(kernel=kernel, alpha=0.25 ** 2, n_restarts_optimizer=1)
+        gp_mcts = GaussianProcessRegressor(kernel=kernel, alpha=0.25 ** 2, n_restarts_optimizer=1)
+
+        # Fit to data using Maximum Likelihood Estimation of the parameters
+        X_policy, X_mcts = np.atleast_2d(adv_policy).T, np.atleast_2d(adv_mcts).T
+        gp_policy.fit(X_policy, player_policy)
+        gp_mcts.fit(X_mcts, player_mcts)
+        x = np.atleast_2d(np.linspace(0, 1, 100)).T
+        y_policy, s_policy = gp_policy.predict(x, return_std=True)
+        y_mcts, s_mcts = gp_mcts.predict(x, return_std=True)
+
+        # CALCULATE CORRELATION
+        corr_player = np.corrcoef(player_policy, adv_policy)[0][1]  # take a non-diagonal element
+        corr_mcts = np.corrcoef(player_mcts, adv_mcts)[0][1]  # take a non-diagonal element
+        correlation = [corr_player, corr_mcts]
+
+        # SCATTER PLOTS AND FITS
+        titles = ['Policy Predictions', 'MCTS Predictions']
+
+        fig, axes = plt.subplots(ncols=2, nrows=1, figsize=(17, 8))
+        player_actions, adv_actions = [player_policy, player_mcts], [adv_policy, adv_mcts]
+        y_pred, sigma = [y_policy, y_mcts], [s_policy, s_mcts]
+        for axis in range(len(axes)):
+            axes[axis].scatter(adv_actions[axis], player_actions[axis], marker='x')
+            axes[axis].set_title("{}, Correlation Coef: {}".format(titles[axis], correlation[axis]))
+
+            # Plot the function, the prediction and the 95% confidence interval based on the MSE
+            axes[axis].plot(x, y_pred[axis], 'b-', label='GP Prediction')
+            axes[axis].fill(np.concatenate([x, x[::-1]]),
+                            np.concatenate([y_pred[axis] - 1.9600 * sigma[axis],
+                                            (y_pred[axis] + 1.9600 * sigma[axis])[::-1]]),
+                            alpha=.5, fc='b', ec='None', label='95% confidence interval')
+            axes[axis].set_xlabel('p(Adversary Action = Left)')
+            axes[axis].set_ylabel('p(Player Action = Left)')
+            axes[axis].set_ylim(0, 1)
+            axes[axis].set_xlim(0, 1)
+            axes[axis].legend()
 
     def add_axis_actionprobvsstate(self, prob_array, axes, agent='player', vs=(0.2, 0.8)):
 

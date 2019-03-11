@@ -92,7 +92,7 @@ class MCTS:
                 return v
             # print("Done, at step: ", curr_env.steps, " returning: ", curr_env.terminal_cost)
             # return value as if fallen over
-            return float(self.env.terminal_cost * ((self.env.steps_till_done - self.env.mcts_steps)/self.env.steps_till_done + 1))
+            return float(self.env.terminal_cost) # * ((self.env.steps_till_done - self.env.mcts_steps)/self.env.steps_till_done + 1))
 
         # ------------- EXPLORING FROM A LEAF NODE ----------------------
         # check if the state has been seen before. If not then assign Ps[s]
@@ -117,17 +117,16 @@ class MCTS:
         best_act = None  # null action
         player = 0
         for a in range(self.env.get_action_size()):
-            u_sum = 0
+            Q, ucb_denom = 0, 0
             for a_adv in range(self.env.get_action_size()):
                 # for cartpole the actions [0, 1] correspond to [-1, +1], but this is only  resolved in CartPoleWrapper
                 if (s, a, a_adv) in self.Qsa:
-                    u = self.Qsa[(s, a, a_adv)] + self.args.cpuct * self.Ps[s][player][a] * np.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a, a_adv)])
-                else:
-                    u = self.args.cpuct * self.Ps[s][player][a_adv] * np.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
-                u_sum += u
-            u_avg = u_sum/self.env.get_action_size()
-            if u_avg > cur_best:
-                cur_best = u_avg
+                    ucb_denom += self.Nsa[(s, a, a_adv)]
+                    Q += self.Qsa[(s, a, a_adv)]
+            u = Q/self.env.get_action_size() + self.args.cpuct*self.Ps[s][player][a] * np.sqrt(self.Ns[s]) / (1 + ucb_denom)
+
+            if u > cur_best:
+                cur_best = u
                 best_act = a
         action.append(best_act)
 
@@ -135,18 +134,15 @@ class MCTS:
         best_act = None  # null action
         player = 1
         for a_adv in range(self.env.get_action_size()):
-            u_sum = 0
+            Q, ucb_denom = 0, 0
             for a in range(self.env.get_action_size()):
-                # for cartpole the actions [0, 1] correspond to [-1, +1], but this is only  resolved in CartPoleWrapper
                 if (s, a, a_adv) in self.Qsa:
-                    u = -self.Qsa[(s, a, a_adv)] + self.args.cpuct * self.Ps[s][player][a_adv] * np.sqrt(self.Ns[s]) / (
-                                1 + self.Nsa[(s, a, a_adv)])
-                else:
-                    u = self.args.cpuct * self.Ps[s][player][a] * np.sqrt(self.Ns[s] + EPS)  # Q = 0 ?
-                u_sum += u
-            u_avg = u_sum / self.env.get_action_size()
-            if u_avg > cur_best:  # choose the lowest u for the adversary
-                cur_best = u_avg
+                    Q += -self.Qsa[(s, a, a_adv)] + self.env.terminal_cost  # terminal_cost re-biases the negative value
+                    ucb_denom += self.Nsa[(s, a, a_adv)]
+
+            u = Q/self.env.get_action_size() + self.args.cpuct*self.Ps[s][player][a_adv] * np.sqrt(self.Ns[s]) / (1 + ucb_denom)
+            if u > cur_best:  # choose the lowest u for the adversary
+                cur_best = u
                 best_act = a_adv
 
         action.append(best_act)  # action = [best_player_act, best_adv_act], where act is an elm of {0, 1} here
@@ -252,11 +248,11 @@ class MCTS:
             QP_face.background.color = c_value
             node.add_face(QP_face, column=0, position="branch-bottom")
 
-            # -------- ADD ANNOTATION FOR ACTION VALUE WRT PLAYER, Q --------
+            # -------- ADD ANNOTATION FOR ACTION VALUE WRT ADVERSARY, Q --------
             ucb_a = self.args.cpuct * self.Ps[s][1][a_adv] * np.sqrt(self.Ns[s]) / (1 + self.Nsa[(s, a, a_adv)])
             # print(self.Qsa[(s, a)], ucb, ucb+self.Qsa[(s, a)])
-            QA_face = TextFace("u_adv = {0:.3f}(Q(s))+{1:.3f}(ucb)= {2:.3f}".format(self.Qsa[(s, a, a_adv)], ucb_a, ucb_a+self.Qsa[(s, a, a_adv)]))
-            c_value = cm.viridis(255+int((self.Qsa[(s, a, a_adv)]+ucb_a)*255))  # plasma goes from 0-255
+            QA_face = TextFace("u_adv = {0:.3f}(-Q(s))+{1:.3f}(ucb)= {2:.3f}".format(-self.Qsa[(s, a, a_adv)]-1, ucb_a, ucb_a-self.Qsa[(s, a, a_adv)]-1))
+            c_value = cm.viridis(255+int((-self.Qsa[(s, a, a_adv)]+ucb_a)*255))  # plasma goes from 0-255
             c_value = "#{0:02x}{1:02x}{2:02x}".format(*[int(round(i * 255)) for i in [c_value[0], c_value[1], c_value[2]]])
             QA_face.background.color = c_value
             node.add_face(QA_face, column=0, position="branch-bottom")

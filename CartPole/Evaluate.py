@@ -6,7 +6,7 @@ from utils import *
 
 
 class Evaluate:
-    def __init__(self, curr_policy, challenger_policy, env):
+    def __init__(self, curr_policy, challenger_policy, env, starting_elo):
         """
         Evaluates the current policy against the challenger policy. It pits the challenger player vs the current
         adversary and vice versa.
@@ -21,8 +21,8 @@ class Evaluate:
         self.challenger_action = challenger_policy
         self.env = env
 
-        self.current_elo = 1000
-        self.chal_elo = 1000
+        self.current_elo = starting_elo
+        self.chal_elo = starting_elo
 
         self.best_policy_stats = {'mean': np.nan, 'avg_length': np.nan}
         self.challenger_policy_stats = {'mean': np.nan, 'avg_length': np.nan}
@@ -52,7 +52,7 @@ class Evaluate:
             ep_lengths.append(counter)
         return ep_lengths
 
-    def run_episodes(self, testEps, render=False):
+    def evaluate_policies(self, testEps, render=False):
         """
         Compares self.challenger_nnet and self.nnet by comparing the means and medians of played episodes
         returns: update = True/False depending on whether some condition is met.
@@ -63,17 +63,17 @@ class Evaluate:
         start = time.time()
         for n in range(testEps):
             chal_adv_length, chal_player_length = self.compare_policies(render)
-            print("Challenger Player Length: {}, Challenger Adversary Length: {}".format(chal_player_length, chal_adv_length))
+            # print("Challenger Player Length: {}, Challenger Adversary Length: {}".format(chal_player_length, chal_adv_length))
 
             # Calculate the new elo scores
             expected_score = 1 / (1+10**((self.current_elo - self.chal_elo)/400))
             score = (chal_player_length/self.env.steps_till_done + 1 - chal_adv_length/self.env.steps_till_done)/2
             self.chal_elo += 32*(score - expected_score)
-            print("Score: {},  Expected Score: {},  New Challenger Elo: {}\n".format(score, expected_score, self.chal_elo))
+            # print("Score: {},  Expected Score: {},  New Challenger Elo: {}\n".format(score, expected_score, self.chal_elo))
             # don't change the current one yet
 
-            #Utils.update_progress("CHALLENGER POLICIES TEST EPISODES, ep" + str(n+1),
-            #                      (n+1) / testEps, time.time() - start)
+            Utils.update_progress("CHALLENGER POLICIES TEST EPISODES, ep" + str(n+1),
+                                  (n+1) / testEps, time.time() - start)
 
         # ---------- COMPARE NEURAL NETS AND DETERMINE WHETHER TO UPDATE -----------
         # means are -ve, we want the number closest to zero -> chal > curr.
@@ -89,4 +89,4 @@ class Evaluate:
         #     print("REJECTING NEW POLICY WITH avg_length = ", self.challenger_policy_stats['avg_length'],
         #           "\t AS THE CURRENT avg_length IS = ", self.best_policy_stats['avg_length'], "\n")
 
-        return 1, 1, 1
+        return self.chal_elo
