@@ -130,34 +130,67 @@ class ConvNetworkArchitecture(nn.Module):
         return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
 
 
-class StateNetworkArchitecture(torch.nn.Module):
+class StateValueNetworkArchitecture(torch.nn.Module):
     def __init__(self, policy_env):
-        super(StateNetworkArchitecture, self).__init__()
+        super().__init__()
         print("State Network Architecture")
         self.action_size = policy_env.get_action_size()  # o
         HIDDEN = 400
         self.linear1 = torch.nn.Linear(4, HIDDEN)
         self.linear2 = torch.nn.Linear(HIDDEN, HIDDEN)
         self.linear3 = torch.nn.Linear(HIDDEN, HIDDEN)
-
-        self.drop_out = nn.Dropout()
-        self.action_layer = nn.Linear(HIDDEN, self.action_size)
-        self.adversary_layer = nn.Linear(HIDDEN, self.action_size)
         self.value_layer = nn.Linear(HIDDEN, 1)
 
     def forward(self, x):
         # takes a vector [action, obs0, obs1, obs2, obs3] and spits out a predicted state
         s = x.view(-1, 4)  # converts [1, 25, 25] -> [1, 1, 25, 25]
         s = self.linear1(s)     # [1, 1, 25, 25] -> [1, 32, 12, 12]
-        #s = self.drop_out(s)  # [1, 2304] -> [1, 2304]
         s = self.linear2(s)     # [1, 32, 12, 12] -> [1, 64, 6, 6]
-        #s = self.drop_out(s)   # [1, 2304] -> [1, 2304]
         s = self.linear3(s)        # [1, 2304] -> [1, 1000]
-        pi = self.action_layer(s)  # batch_size x action_size
-        adv_pi = self.adversary_layer(s)
         v = self.value_layer(s)  # batch_size x 1
+        return -1.0*torch.sigmoid(v)
 
-        return F.softmax(pi, dim=1), F.softmax(adv_pi, dim=1), -1.0*torch.sigmoid(v)
+
+class StatePlayerNetworkArchitecture(torch.nn.Module):
+    def __init__(self, policy_env):
+        super().__init__()
+        print("State Network Architecture")
+        self.action_size = policy_env.get_action_size()  # o
+        HIDDEN = 400
+        self.linear1 = torch.nn.Linear(4, HIDDEN)
+        self.linear2 = torch.nn.Linear(HIDDEN, HIDDEN)
+        self.linear3 = torch.nn.Linear(HIDDEN, HIDDEN)
+        self.action_layer = nn.Linear(HIDDEN, self.action_size)
+
+    def forward(self, x):
+        # takes a vector [action, obs0, obs1, obs2, obs3] and spits out a predicted state
+        s = x.view(-1, 4)  # converts [1, 25, 25] -> [1, 1, 25, 25]
+        s = self.linear1(s)     # [1, 1, 25, 25] -> [1, 32, 12, 12]
+        s = self.linear2(s)     # [1, 32, 12, 12] -> [1, 64, 6, 6]
+        s = self.linear3(s)        # [1, 2304] -> [1, 1000]
+        pi = self.action_layer(s)
+        return F.softmax(pi, dim=1)
+
+
+class StateAdversaryNetworkArchitecture(torch.nn.Module):
+    def __init__(self, policy_env):
+        super().__init__()
+        print("State Network Architecture")
+        self.action_size = policy_env.get_action_size()  # o
+        HIDDEN = 400
+        self.linear1 = torch.nn.Linear(4, HIDDEN)
+        self.linear2 = torch.nn.Linear(HIDDEN, HIDDEN)
+        self.linear3 = torch.nn.Linear(HIDDEN, HIDDEN)
+        self.adversary_layer = nn.Linear(HIDDEN, self.action_size)
+
+    def forward(self, x):
+        # takes a vector [action, obs0, obs1, obs2, obs3] and spits out a predicted state
+        s = x.view(-1, 4)  # converts [1, 25, 25] -> [1, 1, 25, 25]
+        s = self.linear1(s)     # [1, 1, 25, 25] -> [1, 32, 12, 12]
+        s = self.linear2(s)     # [1, 32, 12, 12] -> [1, 64, 6, 6]
+        s = self.linear3(s)        # [1, 2304] -> [1, 1000]
+        pi = self.adversary_layer(s)
+        return F.softmax(pi, dim=1)
 
 
 class NeuralNet:
@@ -165,14 +198,80 @@ class NeuralNet:
 
     def __init__(self, policy_env):
 
-        self.architecture = StateNetworkArchitecture(policy_env)  # pargs is a global variable so no need to pass in
+        self.value_architecture = StateValueNetworkArchitecture(policy_env)  # pargs is a global variable so no need to pass in
+        self.player_architecture = StatePlayerNetworkArchitecture(policy_env)
+        self.adversary_architecture = StateAdversaryNetworkArchitecture(policy_env)
         self.x_size, self.y_size = policy_env.get_state_2d_size()
         self.action_size = policy_env.get_action_size()
 
         if pargs.cuda:
-            self.architecture.cuda()
+            self.value_architecture.cuda()
+            self.player_architecture.cuda()
+            self.adversary_architecture.cuda()
 
     def train_policy(self, examples):
+
+        architectures = [self.player_architecture, self.adversary_architecture, self.value_architecture]
+        optimizers = [optim.Adam(self.player_architecture.parameters(), lr=pargs.lr),
+                      optim.Adam(self.adversary_architecture.parameters(), lr=pargs.lr),
+                      optim.Adam(self.value_architecture.parameters(), lr=pargs.lr)]
+        loss_func = [self.loss_pi, self.loss_pi, self.loss_v]
+        losses = [[], [], []]
+        for idx in range(len(architectures)):
+
+            architectures[idx].train()    # set module in training mode
+            batch_idx, start = 0, time.time()
+            while batch_idx < int(len(examples)/pargs.batch_size):
+
+                # --------------- GET BATCHES -------------------
+                # Stochastic gradient descent -> pick a random sample
+                sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
+                states_2d, pis, adv_pis, vs = list(zip(*[examples[i] for i in sample_ids]))
+                targets = [pis, adv_pis, vs]
+
+                # convert to torch tensors
+                states_2d = torch.FloatTensor(np.array(states_2d).astype(np.float64))
+                target = torch.FloatTensor(np.array(targets[idx]))
+
+                # target_pis = torch.FloatTensor(np.array(pis))
+                # target_adv_pis = torch.FloatTensor(np.array(adv_pis))
+                # target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
+
+                # -------------- FEED FORWARD -------------------
+                if pargs.cuda:
+                    states_2d = states_2d.contiguous().cuda()
+                    target = target.contiguous().cuda()
+
+                output = architectures[idx](states_2d)
+                # -------------- COMPUTE LOSSES -----------------
+                loss = loss_func[idx](target, output)
+
+                # ---------- COMPUTE GRADS AND BACK-PROP ------------
+                loss.backward()
+                optimizers[idx].step()
+                optimizers[idx].zero_grad()
+
+                # store losses for writing to file
+                if pargs.cuda:
+                    loss = loss.cpu()
+                losses[idx].append(loss.detach().numpy().tolist())
+
+                # ------------ TRACK PROGRESS ----------------
+                # Get array of predicted actions and compare with target actions to compute accuracy
+                batch_idx += 1
+                tag = "TRAINING, EPOCH " + str(1) + "/" + str(pargs.epochs) + ". PROGRESS OF " + str(
+                        int(len(examples) / pargs.batch_size)) + " BATCHES"
+                Utils.update_progress(tag, batch_idx / int(len(examples) / pargs.batch_size), time.time() - start)
+
+        # record to CSV file
+        # losses = list(zip(a_losses, a_adv_losses, v_losses, tot_losses))
+        with open(r'Data\TrainingData\NNetLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerows(losses)
+        NeuralNet.trains += 1
+
+
+    def train_policy1(self, examples):
         """
         This function trains the neural network with examples obtained from
         self-play.
@@ -251,17 +350,19 @@ class NeuralNet:
                 env.get_action_size
             v: a float in [-1,1] that gives the value of the current board
         """
-
+        architectures = [self.player_architecture, self.adversary_architecture, self.value_architecture]
+        outputs = []
         # preparing input
         state = torch.FloatTensor(state_2d.astype(np.float64))
         if pargs.cuda:
             state = state.contiguous().cuda()
         state = state.view(1, self.x_size, self.y_size)
 
-        # print(type(state))
-        self.architecture.eval()
-        pi, adv_pi, v = self.architecture.forward(state)
-        return pi.data.cpu().numpy()[0], adv_pi.data.cpu().numpy()[0], v.data.cpu().numpy()[0]
+        for idx in range(len(architectures)):
+            architectures[idx].eval()
+            output = architectures[idx].forward(state)
+            outputs.append(output)
+        return outputs[0].data.cpu().numpy()[0], outputs[1].data.cpu().numpy()[0], outputs[2].data.cpu().numpy()[0]
 
     def loss_pi(self, targets, outputs):
         # the outputs are ln(p) already from log_softmax
@@ -272,19 +373,38 @@ class NeuralNet:
         return torch.sum((targets-outputs.view(-1))**2)/targets.size()[0]
 
     def save_net_architecture(self, folder='NetCheckpoints', filename='checkpoint.pth.tar'):
-        file_path = os.path.join(folder, filename)
         if not os.path.exists(folder):
             print("Checkpoint Directory does not exist! Making directory {}".format(folder))
             os.mkdir(folder)
 
+        value_path = os.path.join(folder, "value"+filename)
         torch.save({
-            'state_dict': self.architecture.state_dict(),
-            }, file_path)
+            'state_dict': self.value_architecture.state_dict(),
+            }, value_path)
+        player_path = os.path.join(folder, "player"+filename)
+        torch.save({
+            'state_dict': self.player_architecture.state_dict(),
+        }, player_path)
+        adversary_path = os.path.join(folder, "adversary"+filename)
+        torch.save({
+            'state_dict': self.adversary_architecture.state_dict(),
+        }, adversary_path)
 
     def load_net_architecture(self, folder='NetCheckpoints', filename='checkpoint.pth.tar'):
-        file_path = os.path.join(folder, filename)
-        if not os.path.exists(file_path):
-            raise("No model in path {}".format(file_path))
+        value_path = os.path.join(folder, "value"+filename)
+        if not os.path.exists(value_path):
+            raise("No model in path {}".format(value_path))
         map_location = None if pargs.cuda else 'cpu'
-        checkpoint = torch.load(file_path, map_location=map_location)
-        self.architecture.load_state_dict(checkpoint['state_dict'])
+
+        value_path = os.path.join(folder, "value"+filename)
+        value_checkpoint = torch.load(value_path, map_location=map_location)
+        self.value_architecture.load_state_dict(value_checkpoint['state_dict'])
+
+        player_path = os.path.join(folder, "player"+filename)
+        player_checkpoint = torch.load(player_path, map_location=map_location)
+        self.player_architecture.load_state_dict(player_checkpoint['state_dict'])
+
+        adversary_path = os.path.join(folder, "adversary"+filename)
+        adversary_checkpoint = torch.load(adversary_path, map_location=map_location)
+        self.adversary_architecture.load_state_dict(adversary_checkpoint['state_dict'])
+

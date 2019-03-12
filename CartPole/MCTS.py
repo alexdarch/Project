@@ -221,8 +221,8 @@ class MCTS:
         next(tree_itr)   # skip the first two nodes the root and the root's root (not sure why there's 2?)
         next(tree_itr)
         for node in tree_itr:
-            s, a = node.up.name, node.action
-            a, a_adv = a
+            s, actions = node.up.name, node.action
+            a, a_adv = actions
             state = [float(dim) / g_accuracy for dim in node.name]
 
             # note that (s, a) is the same as node.name (since parent state & action taken from there = child state)
@@ -230,10 +230,12 @@ class MCTS:
                 delattr(node, "_faces")     # need to remove previously added faces otherwise they stack
             except:
                 pass
+            _, _, v = self.nnet.predict(np.array(state))
+            v = float(v[0])
 
             # -------- ADD ANNOTATION FOR STATE LOSS AND ACTION TAKEN ----------
             loss = self.env.state_loss(state=state)
-            loss_face = TextFace("(s, a, a_adv) = ({0}, {1}),  v = {2:.3f}".format(self.env.round_state(state=state), (a, a_adv), loss))
+            loss_face = TextFace("(s, a, a_adv) = ({0}, {1}),  L = {2:.3f}, V_pred = {3:.3f}".format(self.env.round_state(state=state), (a, a_adv), loss, v))
             c_loss = cm.viridis(255+int(loss*255))  # viridis goes from 0-255
             c_loss = "#{0:02x}{1:02x}{2:02x}".format(*[int(round(i * 255)) for i in [c_loss[0], c_loss[1], c_loss[2]]])
             loss_face.background.color = c_loss   # need rgb colour in hex, "#FFFFFF"=(255, 255, 255)

@@ -32,7 +32,8 @@ class Controller:
 
         # -------- POLICY STATS ----------
         self.policy_iters = 0
-        self.current_elo = 1000
+        self.curr_player_elo = 1000
+        self.curr_adversary_elo = 1000
 
         # ------- CONSTS AFFECTING THE VALUE FUNCTION ----------
         self.max_steps_beyond_done = self.env.max_steps_beyond_done
@@ -120,7 +121,7 @@ class Controller:
                 if self.args.mctsTree:
                     self.mcts.show_tree(values=True)
                     return  # prevents us from overwriting the best model
-                np.savez_compressed(r'Data\TrainingExamples'+str(self.policy_iters)+'.npz', *[step[0] for step in policy_examples])  # pickle the state_2d's in a long dict
+                np.savez_compressed(r'Data\TrainingData\TrainingExamples'+str(self.policy_iters)+'.npz', *[step[0] for step in policy_examples])  # pickle the state_2d's in a long dict
                 self.save_to_csv('TrainingExamples', policy_examples_to_csv)
                 self.policy_examples_history.append(policy_examples)  # list of deques
 
@@ -145,9 +146,9 @@ class Controller:
 
             eval = Evaluate(lambda s2d, root: np.argmax(current_mcts.get_action_prob(s2d, root, temp=0), axis=1),
                           lambda s2d, root: np.argmax(challenger_mcts.get_action_prob(s2d, root, temp=0), axis=1),
-                            self.env, self.current_elo)
-            self.current_elo = eval.evaluate_policies(self.args.testEps)
-            print(self.current_elo)
+                            self.env, self.curr_player_elo, self.curr_adversary_elo)
+            self.curr_player_elo, self.curr_adversary_elo = eval.evaluate_policies(self.args.testEps)
+            print(self.curr_player_elo, self.curr_adversary_elo)
 
             # ------------------------- COMPARE POLICIES AND UPDATE ---------------------------------
             update = True
@@ -167,10 +168,9 @@ class Controller:
 
     def save_to_csv(self, file_name, data):
         # maybe add some unpickling for saving whole examples? or to a different function
-        file_path = os.path.join('Data', file_name + str(self.policy_iters))
+        file_path = os.path.join('Data', 'TrainingData', file_name + str(self.policy_iters))
         with open(file_path + '.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
-
             writer.writerows(data)
 
     @staticmethod
