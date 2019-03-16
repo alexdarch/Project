@@ -33,7 +33,7 @@ class CartPoleWrapper(CartPoleEnv):
 
         # Actions, Reset range and loss weighting:
         self.action_space = [-1, 1]
-        self.handicap = 0.05
+        self.handicap = 0  # 0.05
         self.reset_rng = 0.3  # +-rng around 0, when the state is normed (so x=[-1, 1], theta=[-1, 1]....)
         self.loss_weights = [0.25, 0.1, 0.7, 1]  # multiply state by this to increase it's weighing compared to x
         self.weight_norm = sum(self.loss_weights)  # increase this to increase the effect of the terminal cost
@@ -46,15 +46,15 @@ class CartPoleWrapper(CartPoleEnv):
         self.extra_steps = 0  # counts up to max_steps once done is returned
         self.steps_till_done = 200
 
-    def step(self, player_a, adv_a, next_true_step=False):
-        assert player_a in range(self.get_action_size()), "%r (%s) invalid player action" % (player_a,  type(player_a))
-        assert adv_a in range(self.get_action_size()), "%r (%s) invalid adversary action" % (adv_a, type(adv_a))
+        self.tau = 0.02  # 0.02
+
+    def step(self, a, player, next_true_step=False):
+        assert a in range(self.get_action_size()), "%r (%s) invalid action" % (a,  type(a))
         state = self.state
         x, x_dot, theta, theta_dot = state
-        player_a = self.action_space[player_a]  # convert from [0, 1] -> [-1, 1]
-        adv_a = self.action_space[adv_a]
-        f_1 = player_a * self.force_mag
-        f_2 = self.handicap * adv_a * self.force_mag
+        a = self.action_space[a]  # convert from [0, 1] -> [-1, 1]
+        f_1 = a * self.force_mag if player == 0 else 0
+        f_2 = self.handicap * a * self.force_mag if player == 1 else 0
 
         costheta = np.cos(theta)
         sintheta = np.sin(theta)

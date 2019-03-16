@@ -130,27 +130,6 @@ class ConvNetworkArchitecture(nn.Module):
         return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
 
 
-class StateValueNetworkArchitecture(torch.nn.Module):
-    def __init__(self, policy_env):
-        super().__init__()
-        print("State Network Architecture")
-        self.action_size = policy_env.get_action_size()  # o
-        HIDDEN = 400
-        self.linear1 = torch.nn.Linear(4, HIDDEN)
-        self.linear2 = torch.nn.Linear(HIDDEN, HIDDEN)
-        self.linear3 = torch.nn.Linear(HIDDEN, HIDDEN)
-        self.value_layer = nn.Linear(HIDDEN, 1)
-
-    def forward(self, x):
-        # takes a vector [action, obs0, obs1, obs2, obs3] and spits out a predicted state
-        s = x.view(-1, 4)  # converts [1, 25, 25] -> [1, 1, 25, 25]
-        s = self.linear1(s)     # [1, 1, 25, 25] -> [1, 32, 12, 12]
-        s = self.linear2(s)     # [1, 32, 12, 12] -> [1, 64, 6, 6]
-        s = self.linear3(s)        # [1, 2304] -> [1, 1000]
-        v = self.value_layer(s)  # batch_size x 1
-        return -1.0*torch.sigmoid(v)
-
-
 class StatePlayerNetworkArchitecture(torch.nn.Module):
     def __init__(self, policy_env):
         super().__init__()
@@ -160,6 +139,7 @@ class StatePlayerNetworkArchitecture(torch.nn.Module):
         self.linear1 = torch.nn.Linear(4, HIDDEN)
         self.linear2 = torch.nn.Linear(HIDDEN, HIDDEN)
         self.linear3 = torch.nn.Linear(HIDDEN, HIDDEN)
+        self.value_layer = nn.Linear(HIDDEN, 1)
         self.action_layer = nn.Linear(HIDDEN, self.action_size)
 
     def forward(self, x):
@@ -169,7 +149,8 @@ class StatePlayerNetworkArchitecture(torch.nn.Module):
         s = self.linear2(s)     # [1, 32, 12, 12] -> [1, 64, 6, 6]
         s = self.linear3(s)        # [1, 2304] -> [1, 1000]
         pi = self.action_layer(s)
-        return F.softmax(pi, dim=1)
+        v = self.value_layer(s)  # batch_size x 1
+        return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
 
 
 class StateAdversaryNetworkArchitecture(torch.nn.Module):
@@ -181,6 +162,7 @@ class StateAdversaryNetworkArchitecture(torch.nn.Module):
         self.linear1 = torch.nn.Linear(4, HIDDEN)
         self.linear2 = torch.nn.Linear(HIDDEN, HIDDEN)
         self.linear3 = torch.nn.Linear(HIDDEN, HIDDEN)
+        self.value_layer = nn.Linear(HIDDEN, 1)
         self.adversary_layer = nn.Linear(HIDDEN, self.action_size)
 
     def forward(self, x):
@@ -190,7 +172,8 @@ class StateAdversaryNetworkArchitecture(torch.nn.Module):
         s = self.linear2(s)     # [1, 32, 12, 12] -> [1, 64, 6, 6]
         s = self.linear3(s)        # [1, 2304] -> [1, 1000]
         pi = self.adversary_layer(s)
-        return F.softmax(pi, dim=1)
+        v = self.value_layer(s)  # batch_size x 1
+        return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
 
 
 class NeuralNet:
@@ -198,76 +181,75 @@ class NeuralNet:
 
     def __init__(self, policy_env):
 
-        self.value_architecture = StateValueNetworkArchitecture(policy_env)  # pargs is a global variable so no need to pass in
         self.player_architecture = StatePlayerNetworkArchitecture(policy_env)
         self.adversary_architecture = StateAdversaryNetworkArchitecture(policy_env)
         self.x_size, self.y_size = policy_env.get_state_2d_size()
         self.action_size = policy_env.get_action_size()
 
         if pargs.cuda:
-            self.value_architecture.cuda()
             self.player_architecture.cuda()
             self.adversary_architecture.cuda()
 
     def train_policy(self, examples):
-
-        architectures = [self.player_architecture, self.adversary_architecture, self.value_architecture]
+        examples = np.array(examples)
+        architectures = [self.player_architecture, self.adversary_architecture]
         optimizers = [optim.Adam(self.player_architecture.parameters(), lr=pargs.lr),
-                      optim.Adam(self.adversary_architecture.parameters(), lr=pargs.lr),
-                      optim.Adam(self.value_architecture.parameters(), lr=pargs.lr)]
-        loss_func = [self.loss_pi, self.loss_pi, self.loss_v]
-        losses = [[], [], []]
-        for idx in range(len(architectures)):
-
-            architectures[idx].train()    # set module in training mode
+                      optim.Adam(self.adversary_architecture.parameters(), lr=pargs.lr)]
+        player_losses = [[], [], [], [], [], []]
+        for player in range(len(architectures)):
+            player_examples = examples[examples[:, 2] == player, :]
+            architectures[player].train()    # set module in training mode
             batch_idx, start = 0, time.time()
-            while batch_idx < int(len(examples)/pargs.batch_size):
+            while batch_idx < int(len(player_examples)/pargs.batch_size):
 
                 # --------------- GET BATCHES -------------------
                 # Stochastic gradient descent -> pick a random sample
-                sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
-                states_2d, pis, adv_pis, vs = list(zip(*[examples[i] for i in sample_ids]))
-                targets = [pis, adv_pis, vs]
+                sample_ids = np.random.randint(len(player_examples), size=pargs.batch_size)
+                states_2d, pis, players, vs = list(zip(*[player_examples[i] for i in sample_ids]))
 
-                # convert to torch tensors
+                # convert to torch tensors. Players is irrelevent since each nnet is its own player
                 states_2d = torch.FloatTensor(np.array(states_2d).astype(np.float64))
-                target = torch.FloatTensor(np.array(targets[idx]))
-
-                # target_pis = torch.FloatTensor(np.array(pis))
-                # target_adv_pis = torch.FloatTensor(np.array(adv_pis))
-                # target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
+                target_pis = torch.FloatTensor(np.array(pis))
+                target_vs = torch.FloatTensor(np.array(vs))
 
                 # -------------- FEED FORWARD -------------------
                 if pargs.cuda:
                     states_2d = states_2d.contiguous().cuda()
-                    target = target.contiguous().cuda()
+                    target_pis = target_pis.contiguous().cuda()
+                    target_vs = target_vs.contiguous().cuda()
 
-                output = architectures[idx](states_2d)
+                out_pis, out_vs = architectures[player](states_2d)
                 # -------------- COMPUTE LOSSES -----------------
-                loss = loss_func[idx](target, output)
+                pi_loss = self.loss_pi(target_pis, out_pis)*pargs.pareto
+                v_loss = self.loss_v(target_vs, out_vs)
+                tot_loss = v_loss + pi_loss
 
                 # ---------- COMPUTE GRADS AND BACK-PROP ------------
-                loss.backward()
-                optimizers[idx].step()
-                optimizers[idx].zero_grad()
+                tot_loss.backward()
+                optimizers[player].step()
+                optimizers[player].zero_grad()
 
                 # store losses for writing to file
                 if pargs.cuda:
-                    loss = loss.cpu()
-                losses[idx].append(loss.detach().numpy().tolist())
+                    pi_loss = pi_loss.cpu()
+                    v_loss = v_loss.cpu()
+                    # tot_loss = tot_loss.cpu()
+                player_losses[player*2 + 0].append(pi_loss.detach().numpy().tolist())
+                player_losses[player*2 + 1].append(v_loss.detach().numpy().tolist())
+                # player_losses[player*3 + 2].append(tot_loss.detach().numpy().tolist())
 
                 # ------------ TRACK PROGRESS ----------------
                 # Get array of predicted actions and compare with target actions to compute accuracy
                 batch_idx += 1
                 tag = "TRAINING, EPOCH " + str(1) + "/" + str(pargs.epochs) + ". PROGRESS OF " + str(
-                        int(len(examples) / pargs.batch_size)) + " BATCHES"
-                Utils.update_progress(tag, batch_idx / int(len(examples) / pargs.batch_size), time.time() - start)
+                        int(len(player_examples) / pargs.batch_size)) + " BATCHES"
+                Utils.update_progress(tag, batch_idx / int(len(player_examples) / pargs.batch_size), time.time() - start)
 
         # record to CSV file
         # losses = list(zip(a_losses, a_adv_losses, v_losses, tot_losses))
         with open(r'Data\TrainingData\NNetLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
-            writer.writerows(losses)
+            writer.writerows(player_losses)
         NeuralNet.trains += 1
 
 
@@ -341,7 +323,7 @@ class NeuralNet:
             writer.writerows(losses)
         NeuralNet.trains += 1
 
-    def predict(self, state_2d):
+    def predict(self, state_2d, player):
         """
         Input:
             board: current board in its canonical form.
@@ -350,24 +332,27 @@ class NeuralNet:
                 env.get_action_size
             v: a float in [-1,1] that gives the value of the current board
         """
-        architectures = [self.player_architecture, self.adversary_architecture, self.value_architecture]
-        outputs = []
+        assert player == 0 or player == 1, 'Not a valid Player'
+        architectures = [self.player_architecture, self.adversary_architecture]
         # preparing input
         state = torch.FloatTensor(state_2d.astype(np.float64))
         if pargs.cuda:
             state = state.contiguous().cuda()
         state = state.view(1, self.x_size, self.y_size)
 
-        for idx in range(len(architectures)):
-            architectures[idx].eval()
-            output = architectures[idx].forward(state)
-            outputs.append(output)
-        return outputs[0].data.cpu().numpy()[0], outputs[1].data.cpu().numpy()[0], outputs[2].data.cpu().numpy()[0]
+        architectures[player].eval()
+        pi, v = architectures[player].forward(state)
+        pi, v = pi.data.cpu().numpy()[0], v.data.cpu().numpy()[0]
+        pi, v = pi.tolist(), v.tolist()[0]
+        #pi = [+100, +100] if player == 1 else pi
+        #v = -100 if player == 1 else v
+
+        return pi, v
 
     def loss_pi(self, targets, outputs):
         # the outputs are ln(p) already from log_softmax
         # return -torch.sum(targets*outputs)/targets.size()[0]
-        return torch.sum((targets.view(-1) - outputs.view(-1)) ** 2) /(targets.size()[0]*self.action_size)
+        return torch.sum((targets.view(-1) - outputs.view(-1)) ** 2) / (targets.size()[0]*self.action_size)
 
     def loss_v(self, targets, outputs):
         return torch.sum((targets-outputs.view(-1))**2)/targets.size()[0]
@@ -377,10 +362,6 @@ class NeuralNet:
             print("Checkpoint Directory does not exist! Making directory {}".format(folder))
             os.mkdir(folder)
 
-        value_path = os.path.join(folder, "value"+filename)
-        torch.save({
-            'state_dict': self.value_architecture.state_dict(),
-            }, value_path)
         player_path = os.path.join(folder, "player"+filename)
         torch.save({
             'state_dict': self.player_architecture.state_dict(),
@@ -395,10 +376,6 @@ class NeuralNet:
         if not os.path.exists(value_path):
             raise("No model in path {}".format(value_path))
         map_location = None if pargs.cuda else 'cpu'
-
-        value_path = os.path.join(folder, "value"+filename)
-        value_checkpoint = torch.load(value_path, map_location=map_location)
-        self.value_architecture.load_state_dict(value_checkpoint['state_dict'])
 
         player_path = os.path.join(folder, "player"+filename)
         player_checkpoint = torch.load(player_path, map_location=map_location)

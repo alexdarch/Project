@@ -73,10 +73,12 @@ class VisualiseIteration:
         assert isinstance(axes, np.ndarray) and len(axes) == 2, " Not enough Axes"
 
         # ----- Extract Data -----
-        policy_player = self.iter_data.episode_data['Episode' + str(episode)].PolicyAction.values
-        mcts_player = self.iter_data.episode_data['Episode' + str(episode)].MCTSAction.values
-        policy_adversary = self.iter_data.episode_data['Episode' + str(episode)].PolicyAdv.values
-        mcts_adversary = self.iter_data.episode_data['Episode' + str(episode)].MCTSAdv.values
+        ep = self.iter_data.episode_data['Episode' + str(episode)]
+        is_player_0 = ep['Player'] == 0
+        policy_player = ep.PolicyAction[is_player_0].values
+        mcts_player = ep.MCTSAction[is_player_0].values
+        policy_adversary = ep.PolicyAction[is_player_0 == False].values
+        mcts_adversary = ep.MCTSAction[is_player_0 == False].values
 
         policy_actions = [list(zip(*policy_player))[self.default_action],
                           list(zip(*policy_adversary))[self.default_action]]
@@ -155,15 +157,12 @@ class VisualiseIteration:
         adv_probs = np.zeros(shape, dtype=float)
         adv_counter = np.zeros(shape, dtype=float)
 
-        if policy:
-            player_act = 'PolicyAction'
-            adv_act = 'PolicyAdv'
-        else:
-            player_act = 'MCTSAction'
-            adv_act = 'MCTSAdv'
+        action = 'PolicyAction' if policy else 'MCTSAction'
+        data = self.iter_data.all_data
+        is_player_0 = data['Player'] == 0
 
-        player_actions = list(zip(*self.iter_data.all_data[player_act].values))[self.default_action]
-        adv_actions = list(zip(*self.iter_data.all_data[adv_act].values))[self.default_action]
+        player_actions = list(zip(*data[action][is_player_0].values))[self.default_action]
+        adv_actions = list(zip(*data[action][is_player_0 == False].values))[self.default_action]
 
         obs = list(zip(*self.iter_data.all_data['Observation'].values))
         state_2ds = self.iter_data.all_data['State2D'].values
@@ -193,11 +192,20 @@ class VisualiseIteration:
 
     def plot_action_correlations(self):
 
+        # simply chop off all the extra numbers untill they are the same size
+        data = self.iter_data.all_data
+        is_player_0 = data['Player'] == 0
+        player_df = data[is_player_0]
+        adversary_df = data[is_player_0 == False]
+        cutoff = min(len(player_df), len(adversary_df))
+        player_df = player_df.iloc[:cutoff - 1]
+        adversary_df = adversary_df.iloc[:cutoff - 1]
+
         # get data into right format
-        player_policy = list(zip(*self.iter_data.all_data['PolicyAction']))[self.default_action]
-        adv_policy = list(zip(*self.iter_data.all_data['PolicyAdv']))[self.default_action]
-        player_mcts = list(zip(*self.iter_data.all_data['MCTSAction']))[self.default_action]
-        adv_mcts = list(zip(*self.iter_data.all_data['MCTSAdv']))[self.default_action]
+        player_policy = list(zip(*player_df['PolicyAction']))[self.default_action]
+        adv_policy = list(zip(*adversary_df['PolicyAction']))[self.default_action]
+        player_mcts = list(zip(*player_df['MCTSAction']))[self.default_action]
+        adv_mcts = list(zip(*adversary_df['MCTSAction']))[self.default_action]
         player_policy, adv_policy = np.array(player_policy), np.array(adv_policy)
         player_mcts, adv_mcts = np.array(player_mcts), np.array(adv_mcts)
 
@@ -264,3 +272,4 @@ class VisualiseIteration:
         axes.set_xlabel("X-Position")
         axes.set_ylabel("Angular Position")
         axes.set_title('The 2D State')
+

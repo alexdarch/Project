@@ -56,23 +56,26 @@ class Controller:
         observation = self.env.reset()
         state_2d, loss = self.env.get_state_2d(), self.env.state_loss()
         done = False
+        player = 0  # start with the player pushing on the cart (not the pole)
         while not done:
             # ---------------------- RECORD STEP ------------------------
+            player %= 2  # keep player rotating through 0 and 1
             state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
             observations.append(observation)
             losses.append(loss)
-            policy_action, policy_adv_action, policy_value = self.nnet.predict(state_2d)
-            policy_predictions.append([policy_action.tolist(), policy_adv_action.tolist(), policy_value.tolist()[0]])
+            policy_action, policy_value = self.nnet.predict(state_2d, player)
+            policy_predictions.append([policy_action, policy_value])
 
             # ---------- GET PROBABILITIES FOR EACH ACTION --------------
             temp = 1  # int(self.env.steps < self.args.tempThreshold)  # act greedily if after 15th step
-            pi_player, pi_adv = self.mcts.get_action_prob(state_2d, observation, temp=temp)  # MCTS improved action-prob
-            example.append([state_2d, pi_player, pi_adv])
+            pi = self.mcts.get_action_prob(state_2d, observation, player, temp=temp)  # MCTS improved action-prob
+            example.append([state_2d, pi, player])
 
             # ---------- TAKE NEXT STEP PROBABILISTICALLY ---------------
             # take a random choice with pi probability for each action
-            actions = [np.random.choice(len(pi_player), p=pi_player), np.random.choice(len(pi_adv), p=pi_adv)]
-            observation, loss, done, info = self.env.step(*actions, next_true_step=True)
+            action = np.random.choice(len(pi), p=pi)
+            observation, loss, done, info = self.env.step(action, player, next_true_step=True)
+            player += 1
 
         # Convert Losses to expected losses (discounted into the future by self.max_steps_beyond_done)
         values = self.get_values_from_losses(losses)
@@ -144,8 +147,8 @@ class Controller:
             challenger_mcts = MCTS(self.env, self.challenger_nnet, self.args)
             current_mcts = MCTS(self.env, self.nnet, self.args)
 
-            eval = Evaluate(lambda s2d, root: np.argmax(current_mcts.get_action_prob(s2d, root, temp=0), axis=1),
-                          lambda s2d, root: np.argmax(challenger_mcts.get_action_prob(s2d, root, temp=0), axis=1),
+            eval = Evaluate(lambda s2d, root, player: np.argmax(current_mcts.get_action_prob(s2d, root, player, temp=0)),
+                          lambda s2d, root, player: np.argmax(challenger_mcts.get_action_prob(s2d, root, player, temp=0)),
                             self.env, self.curr_player_elo, self.curr_adversary_elo)
             self.curr_player_elo, self.curr_adversary_elo = eval.evaluate_policies(self.args.testEps)
             print(self.curr_player_elo, self.curr_adversary_elo)
@@ -176,10 +179,9 @@ class Controller:
     @staticmethod
     def update_csv_examples(policy_examples_to_csv, example_episode, policy_predictions, observations):
         policy_examples_to_csv.append([step[3] for step in example_episode])  # only save the value
-        policy_examples_to_csv.append([step[2] for step in policy_predictions])  # and the policy-pred value
+        policy_examples_to_csv.append([step[1] for step in policy_predictions])  # and the policy-pred value
         policy_examples_to_csv.append([step[1] for step in example_episode])  # save the MCTS actions
         policy_examples_to_csv.append([step[0] for step in policy_predictions])  # save the policy action
-        policy_examples_to_csv.append([step[2] for step in example_episode])  # only save the value
-        policy_examples_to_csv.append([step[1] for step in policy_predictions])  # and the policy-pred value
+        policy_examples_to_csv.append([step[2] for step in example_episode])  # save the player
         policy_examples_to_csv.append(observations)  # save the observations
         return policy_examples_to_csv

@@ -101,11 +101,10 @@ class VisualiseIterations:
 
         axes.set_xlabel('Batches (size 8)')
         axes.set_ylabel('Loss')
-
         for itr in iters:
-            axes.plot(self.iters_data[itr].iter_data.nnet_losses)
-            axes.legend(['Itr ' + str(itr) + ' Player Action', 'Itr ' + str(itr) + ' Adversary Action',
-                         'Itr ' + str(itr) + ' Value', 'Itr ' + str(itr) + ' Total'])
+            axes.plot(self.iters_data[itr].iter_data.nnet_losses.values)
+            axes.legend(['Itr ' + str(itr) + ' Player Action', 'Itr ' + str(itr) + ' Player Value',
+                         'Itr ' + str(itr) + ' Adversary Action', 'Itr ' + str(itr) + ' Adversary Value'])
 
     def plot_observation_histograms(self, iters=(0, 1, 2), normed=True):
         for itr in iters:

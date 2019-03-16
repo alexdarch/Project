@@ -17,7 +17,7 @@ class IterationData:
 
         # data formatting
         self.decimal_places = 3
-        self.csv_rows = 7
+        self.csv_rows = 6
         self.action_space = [-1, 1]
 
         # data manipulation
@@ -38,7 +38,7 @@ class IterationData:
         # dict of {ep1: dataframe[2Dstate, TrueValue, PolicyValue, MCTSAction, PolicyAction, Observation], ep2: ...}
         self.episode_data = ReturnClass()
         self.all_data = pd.DataFrame(
-            columns=['TrueValue', 'PolicyValue', 'MCTSAction', 'PolicyAction', 'MCTSAdv', 'PolicyAdv', 'Observation',
+            columns=['TrueValue', 'PolicyValue', 'MCTSAction', 'PolicyAction', 'Player', 'Observation',
                      'State2D'])
         self.state_2ds = np.load(self.training_path + '.npz')
         self.read_examples()
@@ -52,10 +52,11 @@ class IterationData:
             # only pick out relevent rows (because others are different lengths -> can't be read)
             episode_data = pd.read_csv(self.training_path + '.csv', header=None,
                                        skiprows=lambda x: x not in rows).transpose()
-            episode_data.columns = ['TrueValue', 'PolicyValue', 'MCTSAction', 'PolicyAction', 'MCTSAdv', 'PolicyAdv',
+            episode_data.columns = ['TrueValue', 'PolicyValue', 'MCTSAction', 'PolicyAction', 'Player',
                                     'Observation']
             episode_data.TrueValue = episode_data.TrueValue.astype(float).round(self.decimal_places)
             episode_data.PolicyValue = episode_data.PolicyValue.astype(float).round(self.decimal_places)
+            episode_data.Player = episode_data.Player.astype(int)
 
             # Split arrays and convert to floats
             episode_data.MCTSAction = episode_data.MCTSAction.apply(lambda x: x[1:-1].split(', '))
@@ -66,20 +67,9 @@ class IterationData:
             episode_data.PolicyAction = episode_data.PolicyAction.apply(
                 lambda x: [round(float(elm), self.decimal_places) for elm in x])
 
-            episode_data.MCTSAdv = episode_data.MCTSAdv.apply(lambda x: x[1:-1].split(', '))
-            episode_data.MCTSAdv = episode_data.MCTSAdv.apply(
-                lambda x: [round(float(elm), self.decimal_places) for elm in x])
-
-            episode_data.PolicyAdv = episode_data.PolicyAdv.apply(lambda x: x[1:-1].split(', '))
-            episode_data.PolicyAdv = episode_data.PolicyAdv.apply(
-                lambda x: [round(float(elm), self.decimal_places) for elm in x])
-
             episode_data.Observation = episode_data.Observation.apply(lambda x: x[1:-1].split())
             episode_data.Observation = episode_data.Observation.apply(
                 lambda x: [round(float(elm), self.decimal_places) for elm in x])
-
-            # if we want extra columns then this is the way to seperate the arr
-            # print(list(zip(*dataframe.MCTSAction.values)))
 
             # add a reference to the stated2D for each step
             episode_states = list(self.state_2ds)[step_counter:step_counter + episode_data.index[-1] + 1]
@@ -91,7 +81,8 @@ class IterationData:
             self.all_data = pd.concat([self.all_data, episode_data], ignore_index=True)
 
     def read_nnet_losses(self):
-        losses = pd.read_csv(self.nnet_loss_path + '.csv', names=['PlayerAction', 'AdversaryAction', 'Value', 'Total'])
+        losses = pd.read_csv(self.nnet_loss_path + '.csv', header=None).transpose()
+        losses.columns = ['PlayerAction', 'PlayerValue', 'AdversaryAction', 'AdversaryValue']
         return losses
 
     def get_state_2d(self, episode, step):
