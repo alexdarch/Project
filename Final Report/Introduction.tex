@@ -1,0 +1,308 @@
+\documentclass[12pt]{report}
+\linespread{1.25}
+\usepackage[a4paper,top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm]{geometry}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{cleveref}
+\usepackage{wrapfig}
+\usepackage{bbm} % for indicator function \mathbbm{1}
+\usepackage{pdfpages}
+\usepackage{multirow}
+%\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{float}
+\usepackage{amssymb} % for \therefore
+\usepackage{titlesec}
+
+\titleformat
+{\chapter} % command
+[display] % shape
+{\bfseries\Huge} % format
+{} % label
+{-10ex} % sep
+{
+    \rule{\textwidth}{1pt}
+    \vspace{1ex}
+    \thechapter \;\;\;
+} % before-code
+[
+\vspace{0ex}%
+\rule{\textwidth}{0.3pt}
+] % after-code
+
+\titleformat{\section}
+{\bfseries\Large}
+{\thesection}{0.5em}{}
+%\titlespacing{\section}{12pc}{1.5ex plus .1ex minus .2ex}{1pc}
+
+%\usepackage{matlab-prettifier}
+%\lstset{language=Matlab,
+%numbers=left,
+%numberstyle={\tiny \color{black}},% size of the numbers
+%numbersep=9pt, % this defines how far the numbers are from the text
+%}
+
+\date{\today}
+\begin{document}
+
+\begin{titlepage} % Suppresses headers and footers on the title page
+
+	\centering % Centre everything on the title page
+	\scshape % Use small caps for all text on the title page
+	\vspace*{\baselineskip} % White space at the top of the page
+	\rule{\textwidth}{1.6pt}\vspace*{-\baselineskip}\vspace*{2pt} % Thick horizontal rule
+	\rule{\textwidth}{0.4pt} % Thin horizontal rule
+	\vspace{0.75\baselineskip} % Whitespace above the title
+	
+	{\LARGE REINFORCEMENT LEARNING \\ FOR \\ CONTROL AND MULTIPLAYER GAMES \\} % Title
+	
+	\vspace{0.75\baselineskip} % Whitespace below the title
+	\rule{\textwidth}{0.4pt}\vspace*{-\baselineskip}\vspace{3.2pt} % Thin horizontal rule
+	\rule{\textwidth}{1.6pt} % Thick horizontal rule
+	\vspace{1\baselineskip} % Whitespace after the title block
+	
+	%------------------------------------------------
+	%	Subtitle & Logo
+	%------------------------------------------------
+	
+	IIB Project Investigating the application of Google Deepmind's AlphaZero Algorithm to Classical Control Problems 
+	
+    \vspace*{4\baselineskip} % Whitespace under the subtitle
+    \includegraphics[width=0.6\textwidth]{cuedlogo.png}
+    \vspace*{3\baselineskip} % Whitespace under the logo
+	
+	%------------------------------------------------
+	%	Editor(s)
+	%------------------------------------------------
+	
+	Author
+	\vspace{0.5\baselineskip} % Whitespace before the Author
+    {\scshape\Large Alex Darch} % Author list
+
+    Supervisor
+	\vspace{0.5\baselineskip} % Whitespace before the Author
+    {\scshape\Large Dr. Glenn Vinnecombe} % Author list
+    
+    Assessor
+	\vspace{0.5\baselineskip} % Whitespace before the Author
+	{\scshape\Large Dr. Ioannis Lestas} % Author list
+    	
+	\vfill % Whitespace between editor names and publisher logo
+	\vspace{0.3\baselineskip} % Whitespace under the publisher logo
+    \textit{St John's College \\ Cambridge \\ \today}
+
+\end{titlepage}
+
+\tableofcontents{}
+
+\chapter{Introduction}
+
+\section{Controlling Dynamical Systems}
+Dynamical systems have long been of great interest to engineers and scientists due to their ability to handily describe real world phenomena. They describe how a system changes through geometrical space with time and, in principle, their trajectories can be predicted solely from their initial state. In recent years this has become relatively easy, even for non-linear systems, by using numerical methods coupled with increases in computing power. However, often a precise solution is of less import than a prediction of the long term qualitative behaviour of the system. Much effort has been made to find methods to describe this long-term behaviour such as those made by Lyapunov in stability theory. 
+
+A corollary of the importance of dynamical systems is that influencing their behaviour is particularly useful. Highly non-linear models are difficult to control optimally and robustly, and the few mathematical techniques developed to deal with these can only handle very small subcategories of problems. The study of more general techniques to solve complex control problems has recently come to the forefront of the field with the advent of machine learning techniques such as reinforcement and deep learning. Many of these are not aimed specifically at control problems and are often designed to play games. This project looks at adapting one such algorithm - AlphaZero - from playing board games to solving general control problems such as the control of an aircraft in flight or the control of under-actuated robotics by starting with a simple inverted pendulum.
+
+\section{Control Theory}
+The first attempts at controlling dynamical systems came from classical control theory, which consisted of a series of 'cut-and-try' techniques based largely on adjusting the gains of PID controllers and lead/lag compensators until satisfactory closed loop dynamics were achieved \cite{History}
+
+It wasn't until the unification of the calculus of variations, classical control, random process theory and linear/non-linear programming by bellman in the 1950's \cite{History} that truly optimal control was discovered. Optimal control consists of finding the optimal control law for a specified optimality criterion and can be thought of as a non-linear feedback law, $u(t) = -K(t)x(t)$. An optimal control law can be found by solving the Hamilton-Jacobi-Bellman equation in continuous time, or via dynamic programming (DP) in discrete time. DP is a systematic procedure for transforming an optimisation over a sequence of h inputs into h minimisations over 1 inputs (but all states).
+
+\begin{align}
+    \label{equ:detval} 
+    V(x_k, k) & = \underset{u_{k:h-1}}{min} \bigg( \sum_{i=k}^{h-1} c(x_i, u_i) + J_h(x_h) \bigg) \\ 
+    & = \underset{u_k}{min} \Big( c(x_k, u_k) + V(x_{k+1}, k+1) \Big) \\
+    u^{*}_k & = \underset{u_k}{argmin} \Big( c(x_k, u_k) + V(x_{k+1}, k+1) \Big)
+\end{align}
+
+This enables a backwards recursion to find a sequence of value functions. This can be solved for the linear case with quadratic costs (LQR) analytically or, if the system is non-linear, via gradient descent. However, over a finite horizon this is essentially open-loop control. Optimal control of this form has been used to control complex dynamical systems such as spaceflight and aileron folding on aircraft \cite{aircraftoptcont, aileronoptcont}. A closed loop extension to this is Model Predictive Control (MPC), which employs a receding horizon rather than a finite or infinite horizon. MPC can therefore easily deal with plant disturbances and uncertainties, constraints, indefinite horizons and can also be extended to get a control law for non-linear systems. MPC has recently been shown to work in trajectory control for interplanetary rovers \cite{rovermpc}. Optimal control is limited in requiring sophisticated models of the environment/plant and generally struggle with highly non-linear models - state of the art is currently linearisation about the predicted trajectory. Furthermore it is only feasible to 'grid' up to 5/6 dimensions in discrete cases.
+%(https://people.eecs.berkeley.edu/~pabbeel/cs287-fa12/slides/NonlinearOptimizationForOptimalControl.pdf). 
+
+\section{Reinforcement Learning}
+Two further generalisations to dynamical systems and optimal control as defined in equation \ref{equ:detval} are stochastic dynamics and indefinite horizons (i.e. episodic tasks). This discrete time stochastic control process known as a Markov Decision Process (MPD). In MDPs the cost function is often written as a reward function and, due to the indefinite nature of the process, the value function for the next step is discounted:
+
+\begin{align}
+    \label{equ:mdpval} 
+    V(x_k) & = \underset{u_k}{max} \bigg( \sum_{i=k}^{\infty} \lambda^{i-k} r(x_i, u_i) \bigg) \\ 
+    & = \underset{u_k}{max} \; \mathbb{E} \Big[ r(x_k, u_k) + \lambda V(x_{k+1}) \Big] \\
+    u^{*}_k & = \underset{u_k}{argmax}\; \mathbb{E} \Big[ r(x_k, u_k) + \lambda V(x_{k+1}) \Big]
+\end{align}
+
+Reinforcement learning (RL) aims to learn an optimal policy, $\pi^{*}(x_k)$ ($=u^{*}(x_k)$ in control) of an MDP. This differs from optimal control in its inherent stochastic nature and therefore can lead to intractable search spaces. A solution to this is to learn form sample trajectories. Algorithms such as Q-Learning, SARSA and DYNA have recently had great success in control applications, for example, their use in controlling mobile robots \cite{Qlearning}. Furthermore, the advent of neural networks has led to the extension of these to functional approximations from tabula-rasa methods, making the control highly non-linear dynamical systems possible. Notably, Deepminds' recent success with training a robot to gently manipulate objects \cite{Robothand}, would not be possible to reproduce using classical or modern control techniques.
+
+\section{AlphaZero}
+References are: \cite{AlphaGoZero} \cite{AlphaZero} \cite{RLoverview}
+
+AlphaGo Zero is a revolutionary Reinforcement Learning algorithm that achieved superhuman performance in the game of go, winning 100–0 against the previously published, champion-defeating AlphaGo. It's successor, AlphaZero, is a generalised version that can achieve superhuman performance in many games. There are three key sub-algorithms that form the basis of their success: self-play, a convolutional neural network (CNN) and a Monte-Carlo tree search (MCTS). 
+
+\subsection{Neural Network}
+\subsection{Monte-Carlo Tree Search}
+\subsection{Self-Play}
+
+The application of AlphaZero to dynamical systems has not been tried yet, but it is promising because optimal disturbance modelling, etc. This project investigates to application of the general reinforcement learning algorithm AlphaZero to the control of dynamical systems.
+
+\chapter{Theory \& Methodology}
+Explain the assumptions behind the theoretical development you are using and the application of the theory to your particular problem. Any heavy algebra or details of computing work should go into an appendix.
+
+\section{The Inverted Pendulum}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.9\textwidth]{Derivations/CartPoleDiagram.PNG}
+    \caption{A free-body diagram of the cartpole system. For the OpenAI cartpole the system is in discrete time with a time-step of $\tau = 0.02s$. The other constants are $l = 0.5m$, $m=0.1kg$, $M=1kg$, $F=\pm10N$, $x_{max}=\pm 2.4m$, $\theta_{max} = \pm 12^o$.}
+    \label{fig:my_label}
+\end{figure}
+
+We can find the state space equations for the Cartpole using d'Alembert forces. Firstly we define the distance and velocity vectors to the important points:
+
+\begin{align*}
+    & \boldsymbol{r}_P = x \boldsymbol{i} \\
+    & \boldsymbol{r}_{B_1/P} = Lsin \theta \boldsymbol{i} + Lcos \theta \boldsymbol{j} \\
+    & \boldsymbol{r}_{B_1} = (x+Lcos \theta)\boldsymbol{i}+L \dot{\theta} sin \theta  \boldsymbol{j} \\
+    & \dot{\boldsymbol{r}}_{B_1} = (\dot{x} + L\dot{\theta}cos\theta)\boldsymbol{i} - L\dot{\theta}sin\theta \boldsymbol{j}
+\end{align*}
+
+Linear Momentum, $\boldsymbol{\rho} = \sum_i m_i \dot{\boldsymbol{r}}_{i/o} = m \dot{\boldsymbol{r}}_{B_1} + M \dot{\boldsymbol{r}}_{P}$:
+
+\begin{equation*}
+\boldsymbol{\rho} = 
+\begin{bmatrix} (M+m)\dot{x} + ml\dot{\theta}cos{\theta} \\ -ml\dot{\theta}sin{\theta} \\ 0 \end{bmatrix} 
+\end{equation*}
+
+Moment of momentum about P, $\boldsymbol{h}_P = \boldsymbol{r}_{B_1/P} \times m\boldsymbol{\dot{r}}_{B_1}$:
+
+\begin{align*}
+\boldsymbol{h}_P & = -mL(L\dot{\theta} + \dot{x}cos\theta) \boldsymbol{k} \\
+\therefore \boldsymbol{\dot{h}}_P & = -mL(L\ddot{\theta} + \ddot{x}cos\theta - \dot{x}\dot{\theta}sin\theta) \boldsymbol{k}
+\end{align*}
+
+We can balance moments using $\boldsymbol{\dot{h}}_P + \boldsymbol{\dot{r}}_P \times \boldsymbol{\rho} = \boldsymbol{Q}_{e}$ and $ \boldsymbol{Q}_{e} = \boldsymbol{r}_{B_1/P} \times -mg\boldsymbol{j} + \boldsymbol{r}_{B_2/P} \times F_2 \boldsymbol{i}$:
+\begin{equation*}
+\boldsymbol{\dot{h}}_P + \boldsymbol{\dot{r}}_P \times \boldsymbol{\rho} = 
+\begin{bmatrix} 0 \\ 0 \\ -mL(\ddot{x} cos\theta + L\ddot{\theta}) \end{bmatrix} = \begin{bmatrix} 0 \\ 0 \\ -L(mgsin\theta + 2 F_2 cos \theta) \end{bmatrix} = \boldsymbol{Q}_e
+\end{equation*}
+
+And also balance linear momentum using $\boldsymbol{F}_e = \dot{\boldsymbol{\rho}}$:
+
+\begin{equation*}
+    \dot{\boldsymbol{\rho}} = \begin{bmatrix} (m+M)\ddot{x} + mL(\ddot{\theta}cos\theta - \dot{\theta}^2 sin\theta) \\ -mL(\ddot{\theta}sin\theta + \dot{\theta}^2 cos\theta) \\ 0 \end{bmatrix}
+    = \begin{bmatrix} F_1 + F_2 \\ R-mg \\ 0 \end{bmatrix} = \boldsymbol{F}_e
+\end{equation*}
+
+Finally we can write the system dynamics in terms of $\ddot{\theta}$ and $\ddot{x}$:
+
+\begin{align}
+\ddot{\theta}\big(M+msin^2\theta \big)L & = \bigg(\frac{2M-m}{m}F_2-F_1\bigg)cos\theta + g(M+m)sin\theta - mL\dot{\theta}^2 sin\theta cos\theta\\
+\ddot{x}(M+msin^2\theta) & = F_1 + F_2cos(2\theta)+ msin\theta(L\dot{\theta}^2-gcos\theta)
+\end{align}
+
+
+Simplifying this for our problem by substituting in constants, we can write the full state space equation:
+
+\begin{equation}
+\begin{bmatrix} \dot{x} \\ \ddot{x} \\ \dot{\theta} \\ \ddot{\theta} \end{bmatrix}  =
+\begin{bmatrix} \dot{x} \\ \frac{\big(\frac{2M-m}{m}F_2-F_1\big)cos\theta + g(M+m)sin\theta - mL\dot{\theta}^2 sin\theta cos\theta}{(M + msin^2\theta)} \\ \dot{\theta} \\ \frac{F_1 + F_2cos(2\theta)+ msin\theta(L\dot{\theta}^2-gcos\theta)}{L(M+msin^2\theta)} \end{bmatrix} 
+\end{equation}
+
+\subsection{Linearisation about $\boldsymbol{x}_e$ and Conrollability}
+
+Ignoring second order terms and linearising about $\boldsymbol{x}_e = [x_e, \dot{x}_e, \theta_e, \dot{\theta}_e]^T = [0, 0, 0, 0]^T$:
+\begin{equation}
+\begin{bmatrix} \dot{x} \\ \ddot{x} \\ \dot{\theta} \\ \ddot{\theta} \end{bmatrix} 
+=   \begin{bmatrix} 
+    \dot{x} \\ 
+    \frac{f + m\theta g}{M} \\ 
+    \dot{\theta} \\ 
+    \frac{- f - (M+m)g\theta}{lM} 
+    \end{bmatrix}
+=   \begin{bmatrix} 
+    0 & 1 & 0 & 0 \\
+    0 & 1 & \frac{mg}{M} & 0 \\
+    0 & 1 & 0 & 1 \\
+    0 & 1 & -\frac{(M+m)g}{lM} & 0 \\
+    \end{bmatrix}
+    \begin{bmatrix} x \\ \dot{x} \\ \theta \\ \dot{\theta} \end{bmatrix}
++  \begin{bmatrix} 0 \\ \frac{1}{M} \\ 0 \\ -\frac{1}{lM} \end{bmatrix} f
+\end{equation}
+
+It can be proved that the cartpole system is controllable by showing:
+
+\begin{equation}
+    rank[\boldsymbol{B} \; \boldsymbol{AB} \; \boldsymbol{A^2B} \; \boldsymbol{A^3B}] = 4
+\end{equation}
+Therefore for any initial condition we can reach $\boldsymbol{x}_e$ in finite time under these linear assumptions.
+However, for $\theta \approx 0$ we need a more sophistocated model.
+
+\subsection{Swing-Up Control}
+
+One way to get the cart to swing the pendulum up to the linear-range is to find a homoclinic orbit (a trajectory that passes though an unstable fixed point). I.e. we must find a controller that that drives the pendulum to the unstable equilibrium. This can be done using energy shaping, and in the context of the cartpole, this constitutes applying force to maximise the potential energy and minimise kinetic. Once in the linear region we then switch to an LQR controller to complete the task.
+
+\section{Neural Network}
+
+\subsection{Architectures}
+\subsection{Loss Functions and Pareto}
+
+\section{Scoring and Comparison}
+
+\chapter{Experimental Techniques}
+This section should describe the running of the experiment or experiments and what equipment was used, but should not be a blow by blow account of your work. Experimental accuracy could be discussed here.
+\section{blah blah}
+
+\stepcounter{chapter} % for some reason bibliography has the same number as the previous chaper...
+\renewcommand{\bibname}{References}
+\addcontentsline{toc}{chapter}{References}
+\begin{thebibliography}{9}
+    \bibitem{History}
+        Arthur E. Bryson Jr,
+        \emph{Optimal Control - 1950 to 1985}.
+        IEEE Control Systems, 0272-1708/95 pg.26-33, 1996.
+
+    \bibitem{aircraftoptcont}
+        I. Michael Ross, Ronald J. Proulx, and Mark Karpenko,
+        \emph{Unscented Optimal Control for Space Flight}.
+        ISSFD S12-5, 2014.
+
+    \bibitem{aileronoptcont}
+        Zheng Jie Wang, Shijun Guo, Wei Li,
+        \emph{Modeling,Simulation and Optimal Control for an Aircraft of
+        Aileron-less Folding Wing}
+        WSEAS TRANSACTIONS on SYSTEMS and CONTROL, ISSN: 1991-8763, 10:3, 2008
+
+    \bibitem{rovermpc}
+        Giovanni Binet, Rainer Krenn and Alberto Bemporad,
+        \emph{Model Predictive Control Applications for Planetary Rovers}.
+        imtlucca, 2012.
+
+    \bibitem{RLintro}
+        Richard S. Sutton and Andrew G. Barto,
+        \emph{Reinforcement Learning: An Introduction (2nd Edition)}.
+        The MIT Press, Cambridge, Massachusetts, London, England
+
+    \bibitem{Qlearning}
+        I. Carlucho, M. De Paula, S. Villar, G. Acosta . \emph{Incremental Q-learning strategy for adaptive PID control of mobile robots}. 
+        Expert Systems with Applications. 80. 10.1016, 2017
+    
+    \bibitem{Robothand}
+    Sandy H. Huang, Martina Zambelli, Jackie Kay, Murilo F. Martins, Yuval Tassa, Patrick M. Pilarski, Raia Hadsell, 
+    \emph{Learning Gentle Object Manipulation with Curiosity-Driven Deep Reinforcement Learning}.
+    arXiv 2019.
+
+    \bibitem{AlphaGoZero}
+        David Silver, Julian Schrittwieser, Karen Simonyan et al,
+        \emph{Mastering the game of Go without human knowledge}.
+        Nature, vol. 550, pg.354–359, 2017.
+    
+    \bibitem{AlphaZero}
+        David Silver, Thomas Hubert, Julian Schrittwieser et al, 
+        \emph{A general reinforcement learning algorithm that
+        masters chess, shogi and Go through self-pla}.
+        Science 362:6419, pg.1140-1144, 2018.
+    
+    \bibitem{RLoverview}
+        Yuxi Li, 
+        \emph{Deep Reinforcement Learning: An Overview}. 
+        CoRR, abs/1810.06339, 2018.
+    
+\end{thebibliography}
+\end{document}
