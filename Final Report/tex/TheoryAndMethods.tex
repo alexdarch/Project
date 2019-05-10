@@ -1,0 +1,83 @@
+\documentclass[main.tex]{subfiles}
+\begin{document}
+Explain the assumptions behind the theoretical development you are using and the application of the theory to your particular problem. Any heavy algebra or details of computing work should go into an appendix.
+This section should describe the running of the experiment or experiments and what equipment was used, but should not be a blow by blow account of your work. Experimental accuracy could be discussed here.
+
+\section{The Inverted Pendulum (IP)}
+The Inverted Pendulum is an inherently unstable system with highly nonlinear dynamics and is under-actuated.
+
+\subsection{Dynamics}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.9\textwidth]{Derivations/CartPoleDiagram.PNG}
+    \caption{A free-body diagram of the inverted pendulum system. For the OpenAI IP the system is in discrete time with a time-step of $\tau = 0.02s$. The other constants are $l = 0.5m$, $m=0.1kg$, $M=1kg$, $F=\pm10N$, $x_{max}=\pm 2.4m$, $\theta_{max} = \pm 12^o$.}
+    \label{fig:invpen}
+\end{figure}
+
+The full state space equations for the inverted pendulum as defined in fig.\ref{fig:invpen} are given by:
+
+\begin{equation}
+\begin{bmatrix} \dot{x} \\ \ddot{x} \\ \dot{\theta} \\ \ddot{\theta} \end{bmatrix}  =
+\begin{bmatrix} \dot{x} \\ \frac{\big(\frac{2M-m}{m}F_2-F_1\big)cos\theta + g(M+m)sin\theta - mL\dot{\theta}^2 sin\theta cos\theta}{(M + msin^2\theta)} \\ \dot{\theta} \\ \frac{F_1 + F_2cos(2\theta)+ msin\theta(L\dot{\theta}^2-gcos\theta)}{L(M+msin^2\theta)} \end{bmatrix} 
+\end{equation}
+
+Ignoring second order terms and linearising about $\boldsymbol{x}_e = [x_e, \dot{x}_e, \theta_e, \dot{\theta}_e]^T = [0, 0, 0, 0]^T$:
+\begin{equation}
+\begin{bmatrix} \dot{x} \\ \ddot{x} \\ \dot{\theta} \\ \ddot{\theta} \end{bmatrix} 
+=   \begin{bmatrix} 
+    \dot{x} \\ 
+    \frac{\frac{2M-m}{m}F_1-F_2 + g(M+m)\theta}{M} \\ 
+    \dot{\theta} \\ 
+    \frac{F_1 + F_2 - gm\theta}{lM} 
+    \end{bmatrix}
+=   \begin{bmatrix} 
+    0 & 1 & 0 & 0 \\
+    0 & 0 & g\frac{M+m}{M} & 0 \\
+    0 & 0 & 0 & 1 \\
+    0 & 0 & -\frac{mg}{lM} & 0 \\
+    \end{bmatrix}
+    \begin{bmatrix} x \\ \dot{x} \\ \theta \\ \dot{\theta} \end{bmatrix}
++  \begin{bmatrix} 0 & 0 \\ -\frac{1}{M} & \frac{2M-m}{Mm} \\ 0 & 0 \\ \frac{1}{lM} & \frac{1}{lM} \end{bmatrix} 
+\begin{bmatrix} F_1 \\ F_2 \end{bmatrix}
+\end{equation}
+
+Which, as expected, is unstable since $det(\lambda I - A) = 0 \implies \lambda^2(\lambda^2 + \frac{mg}{lM}) = 0$. For small angles the natural frequency of a non-inverted pendulum is $\omega_n = \sqrt{\frac{mg}{lM}} = \sqrt{\frac{0.1\times 9.81}{0.5\times 1}} \approx 1.40 rad/s$. Therefore, the time constant for the system is $\tau \approx 0.70s$. A discrete time step of 0.02s is 35x smaller than this and therefore we expect an impulse to cause $\sim 3\%$ change in the state values. This is far below the threshold for pulse-width modulation, i.e. the actions are fast enough for the input forces to be modelled as continuous **** Is this right?? experimentally, the largest velocities give even better results ****
+
+\subsection{Cost and Value Function}
+
+
+\subsection{State Representations}
+pseudocode, proof and explanation + cost/benefits
+
+\subsection{Episode Execution}
+
+\section{Self-Play and Adversaries}
+
+\subsection{Point of Action}
+symmetry, action choices and PMW
+
+\subsection{Worst Possible Action}
+
+\subsection{Adversarial Cost}
+representation with the cost function.
+
+\section{Neural Network}
+\subsection{Loss Functions and Pareto}
+
+\subsection{Architectures}
+Player vs Adversary Architectures? Combined?
+
+\section{MCTS}
+outline + pseudocode
+\subsection{State and Player Representation}
+
+\subsection{Terminal States and Suicide***}
+
+\subsection{Modified UCB}
+
+
+\section{Player and Adversary Evaluation}
+\subsection{Elo Scoring}
+
+\end{document}

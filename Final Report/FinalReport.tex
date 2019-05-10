@@ -1,0 +1,56 @@
+\documentclass[12pt]{report}
+\linespread{1.25}
+\usepackage[a4paper,top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm]{geometry}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref} 
+\usepackage{cleveref}
+\usepackage{wrapfig}
+\usepackage{bbm} % for indicator function \mathbbm{1}
+\usepackage{pdfpages}
+\usepackage{multirow}
+%\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{float}
+\usepackage{amssymb} % for \therefore
+\usepackage{titlesec}
+\usepackage{subfiles}
+
+\titleformat
+{\chapter} % command
+[display] % shape
+{\bfseries\Huge} % format
+{} % label
+{-10ex} % sep
+{
+    \rule{\textwidth}{1pt}
+    \vspace{1ex}
+    \thechapter \;\;\;
+} % before-code
+[
+\vspace{0ex}%
+\rule{\textwidth}{0.3pt}
+] % after-code
+\titleformat{\section}
+{\bfseries\Large}
+{\thesection}{0.5em}{}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% --------------- BEGIN DOCUMENT --------------
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+%\subfile{./tex/title.tex}
+\tableofcontents{}
+
+%\subfile{./tex/Introduction.tex}
+\subfile{./tex/TheoryAndMethods.tex}
+
+\clearpage
+\subfile{./tex/Bibliography.tex}
+\clearpage
+\appendix
+%\subfile{./tex/Appendix.tex}
+\end{document}

@@ -1,0 +1,70 @@
+\documentclass[main.tex]{subfiles}
+\begin{document}
+\chapter{Appendicies}
+\section{Inverted Pendulum Dynamics Derivation}
+
+We can find the state space equations for the Inverted Pendulum using d'Alembert forces. Firstly we define the distance and velocity vectors to the important points:
+
+\begin{align*}
+    & \boldsymbol{r}_P = x \boldsymbol{i} \\
+    & \boldsymbol{r}_{B_1/P} = Lsin \theta \boldsymbol{i} + Lcos \theta \boldsymbol{j} \\
+    & \boldsymbol{r}_{B_1} = (x+Lcos \theta)\boldsymbol{i}+L \dot{\theta} sin \theta  \boldsymbol{j} \\
+    & \dot{\boldsymbol{r}}_{B_1} = (\dot{x} + L\dot{\theta}cos\theta)\boldsymbol{i} - L\dot{\theta}sin\theta \boldsymbol{j}
+\end{align*}
+
+Linear Momentum, $\boldsymbol{\rho} = \sum_i m_i \dot{\boldsymbol{r}}_{i/o} = m \dot{\boldsymbol{r}}_{B_1} + M \dot{\boldsymbol{r}}_{P}$:
+
+\begin{equation*}
+\boldsymbol{\rho} = 
+\begin{bmatrix} (M+m)\dot{x} + ml\dot{\theta}cos{\theta} \\ -ml\dot{\theta}sin{\theta} \\ 0 \end{bmatrix} 
+\end{equation*}
+
+Moment of momentum about P, $\boldsymbol{h}_P = \boldsymbol{r}_{B_1/P} \times m\boldsymbol{\dot{r}}_{B_1}$:
+
+\begin{align*}
+\boldsymbol{h}_P & = -mL(L\dot{\theta} + \dot{x}cos\theta) \boldsymbol{k} \\
+\therefore \boldsymbol{\dot{h}}_P & = -mL(L\ddot{\theta} + \ddot{x}cos\theta - \dot{x}\dot{\theta}sin\theta) \boldsymbol{k}
+\end{align*}
+
+We can balance moments using $\boldsymbol{\dot{h}}_P + \boldsymbol{\dot{r}}_P \times \boldsymbol{\rho} = \boldsymbol{Q}_{e}$ and $ \boldsymbol{Q}_{e} = \boldsymbol{r}_{B_1/P} \times -mg\boldsymbol{j} + \boldsymbol{r}_{B_2/P} \times F_2 \boldsymbol{i}$:
+\begin{equation*}
+\boldsymbol{\dot{h}}_P + \boldsymbol{\dot{r}}_P \times \boldsymbol{\rho} = 
+\begin{bmatrix} 0 \\ 0 \\ -mL(\ddot{x} cos\theta + L\ddot{\theta}) \end{bmatrix} = \begin{bmatrix} 0 \\ 0 \\ -L(mgsin\theta + 2 F_2 cos \theta) \end{bmatrix} = \boldsymbol{Q}_e
+\end{equation*}
+
+And also balance linear momentum using $\boldsymbol{F}_e = \dot{\boldsymbol{\rho}}$:
+
+\begin{equation*}
+    \dot{\boldsymbol{\rho}} = \begin{bmatrix} (m+M)\ddot{x} + mL(\ddot{\theta}cos\theta - \dot{\theta}^2 sin\theta) \\ -mL(\ddot{\theta}sin\theta + \dot{\theta}^2 cos\theta) \\ 0 \end{bmatrix}
+    = \begin{bmatrix} F_1 + F_2 \\ R-mg \\ 0 \end{bmatrix} = \boldsymbol{F}_e
+\end{equation*}
+
+Finally we can write the system dynamics in terms of $\ddot{\theta}$ and $\ddot{x}$:
+
+\begin{align}
+\ddot{\theta}\big(M+msin^2\theta \big)L & = \bigg(\frac{2M-m}{m}F_2-F_1\bigg)cos\theta + g(M+m)sin\theta - mL\dot{\theta}^2 sin\theta cos\theta\\
+\ddot{x}(M+msin^2\theta) & = F_1 + F_2cos(2\theta)+ msin\theta(L\dot{\theta}^2-gcos\theta)
+\end{align}
+
+
+Simplifying this for our problem by substituting in constants, we can write the full state space equation:
+
+\begin{equation}
+\begin{bmatrix} \dot{x} \\ \ddot{x} \\ \dot{\theta} \\ \ddot{\theta} \end{bmatrix}  =
+\begin{bmatrix} \dot{x} \\ \frac{\big(\frac{2M-m}{m}F_2-F_1\big)cos\theta + g(M+m)sin\theta - mL\dot{\theta}^2 sin\theta cos\theta}{(M + msin^2\theta)} \\ \dot{\theta} \\ \frac{F_1 + F_2cos(2\theta)+ msin\theta(L\dot{\theta}^2-gcos\theta)}{L(M+msin^2\theta)} \end{bmatrix} 
+\end{equation}
+
+
+It can be proved that the cartpole system is controllable by showing:
+
+\begin{equation}
+    rank[\boldsymbol{B} \; \boldsymbol{AB} \; \boldsymbol{A^2B} \; \boldsymbol{A^3B}] = 4
+\end{equation}
+Therefore for any initial condition we can reach $\boldsymbol{x}_e$ in finite time under these linear assumptions.
+However, for $\theta \approx 0$ we need a more sophistocated model.
+
+\subsection{Swing Up Control}
+
+One way to get the cart to swing the pendulum up to the linear-range is to find a homoclinic orbit (a trajectory that passes though an unstable fixed point). I.e. we must find a controller that that drives the pendulum to the unstable equilibrium. This can be done using energy shaping, and in the context of the cartpole, this constitutes applying force to maximise the potential energy and minimise kinetic. Once in the linear region we then switch to an LQR controller to complete the task.
+
+\end{document}
