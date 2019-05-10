@@ -11,7 +11,7 @@ The Inverted Pendulum is an inherently unstable system with highly nonlinear dyn
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.9\textwidth]{../Figures/CartPoleDiagram.PNG}
-    \caption{A free-body diagram of the inverted pendulum system. For the OpenAI IP the system is in discrete time with a time-step of $\tau = 0.02s$. The other constants are $l = 0.5m$, $m=0.1kg$, $M=1kg$, $F=\pm10N$, $x_{max}=\pm 2.4m$, $\theta_{max} = \pm 12^o$.}
+    \caption{A free-body diagram of the inverted pendulum system. For the OpenAI IP the system is in discrete time with a time-step of $\tau =  0.02s$. The other constants are $l = 0.5m$, $m=0.1kg$, $M=1kg$, $F=\pm10N$, $x_{max}=\pm 2.4m$, $\theta_{max} = \pm 12^o$.}
     \label{fig:invpen}
 \end{figure}
 
@@ -42,22 +42,78 @@ Ignoring second order terms and linearising about $\boldsymbol{x}_e = [x_e, \dot
 \begin{bmatrix} F_1 \\ F_2 \end{bmatrix}
 \end{equation}
 
-Which, as expected, is unstable since $det(\lambda I - A) = 0 \implies \lambda^2(\lambda^2 + \frac{mg}{lM}) = 0$. For small angles the natural frequency of a non-inverted pendulum is $\omega_n = \sqrt{\frac{mg}{lM}} = \sqrt{\frac{0.1\times 9.81}{0.5\times 1}} \approx 1.40 rad/s$. Therefore, the time constant for the system is $\tau \approx 0.70s$. A discrete time step of 0.02s is 35x smaller than this and therefore we expect an impulse to cause $\sim 3\%$ change in the state values. This is far below the threshold for pulse-width modulation, i.e. the actions are fast enough for the input forces to be modelled as continuous **** Is this right?? experimentally, the largest velocities give even better results ****
+Which, as expected, is unstable since $det(\lambda I - A) = 0 \implies \lambda^2(\lambda^2 + \frac{mg}{lM}) = 0$. Note, for small angles the natural frequency of a non-inverted pendulum is $\omega_n = \sqrt{\frac{mg}{lM}} = \sqrt{\frac{0.1\times 9.81}{0.5\times 1}} \approx 1.40 rad/s$. Therefore, the time constant for the system is $\tau \approx 0.70s$. 
+
+OpenAI's gym is a python package that supplies an inverted pendulum environment built-in. This environment was wrapped to use the dynamics above and other extra functionality, whilst providing a rendering function shown in figure \ref{fig:openai}.
+
+\begin{figure}[H]
+   \centering
+   \includegraphics[width=0.7\textwidth]{../Figures/Cartpole.PNG}
+   \caption{\label{fig:openai} The OpenAI gym CartPole environment. The classical state representation is shown in the top left. Actions by the player and the adversary are taken as an impulse to the left or right as defined in \ref{fig:invpen}.}
+\end{figure}
 
 \subsection{Cost and Value Function}
 
+For each step/impulse, the 2D state is calculated and a cost, is calculated as:
 
+\begin{equation}
+   c(x_t, u_t) = - \frac{1}{\sum_{i} w_i} \boldsymbol{w} \cdot \bigg[ \Big(\frac{x_t}{x_{max}}\Big)^2,  \Big(\frac{\dot{x}_t}{\dot{x}_{max}}\Big)^2,  \Big(\frac{\theta_t}{\theta_{max}}\Big)^2,  \Big(\frac{\dot{\theta}_t}{\dot{\theta}_{max}}\Big)^2 \bigg]^T
+\end{equation}
 
+Where $\boldsymbol{w}^T = [w_1, w_2, w_3, w_4] = [0.25, 0.1, 0.7, 1]$ and $0 \geq c(x_t, u_t) \geq -1$. The weights, $\boldsymbol{w}$, were chosen through empirical measurement of the the importance of each state ***. Weighting on the inputs was set to zero, as there are only two inputs for this problem, thus the cost can be written as $c(x_t)$. The max values can be approximated experimentally (note, $x_{max} = 2.4$ and $\theta_{max} = 12^o$ are given constraints):
+
+\begin{figure}[H]
+   \centering
+   \includegraphics[width=\textwidth]{../Figures/Stateranges.PNG}
+   \caption{\label{fig:ranges} Histograms of typical state values. The frequencies greatly depend on the quality of the controller, with better controllers giving much narrower distributions. However, these are typical for a controller of medium efficacy over many episodes where the starting state is randomised (possibly in an uncontrollable position)}.
+\end{figure}
+
+Suitable estimates for the the values of $\dot{x}_{max}$ and $\dot{\theta}_{max}$ are thus $\approx x_{max}$ and 2 respectively.
+
+The value function is computed after an episode has completed as the discounted future losses at each state with the constraint that $\gamma^{k} < \frac{1}{20}$, where $\frac{1}{20}$ was chosen as it is a standard factor for insignificance. Since steps$\_$beyonds$\_$done (= k) must be defined in the CartPoleWrapper class, this is a constant, and therefore $\gamma$ is calculated as $\gamma < \frac{1}{20}^{\frac{1}{k}}$. The discounted values are calculated using a geometric series:
+
+\begin{align}
+   v_0 = \frac{\sum_{\tau=0}^{k} \gamma^\tau c(x_\tau ) }{\sum_{\tau = 0}^k \gamma_\tau}, \hspace{2cm} \text{where } \gamma^k < \frac{1}{20}
+\end{align}
+
+Where for simplicity of notation, $v_0 = v(t)$, the state value at step t.
 
 \subsection{State Representations}
-pseudocode, proof and explanation + cost/benefits
+
+The state can be represented in a number of ways, most simply this would just be feeding $\boldsymbol{x} = [x, \dot{x}, \theta, \dot{\theta}]$ into the neural network. This has a number of advantages such as lower computational cost, greater numerical accuracy (if the process is fully observable) and simpler implementation. Conversely, following Silver et. al, a 2D representation can be used. There are several possibilities for this, all of which first require binning $\boldsymbol{x}$:
+
+\begin{wrapfigure}{R}{0.6\textwidth}
+   % \vspace{-1cm}
+   \centering
+   \includegraphics[width=0.6\textwidth]{../Figures/State2D.PNG}
+   \vspace{-20pt}
+   \caption{An example of a 2D state representation where there are 20 bins and 17 random actions have been taken.}
+   \label{fig:state2D}
+\end{wrapfigure}
+
+(1) A matrix stack of x vs $\dot{x}$ and $\theta$ vs $\dot{\theta}$, both of which would only have one non-zero entry. This scales as $b^n$ where b = number of bins and n = number of states.
+
+(2) A matrix stack of $x_t$ vs $x_{t-1}$ for all states. Similarly this scales as $b^n$, however the derivative states do not need to be plotted as these can be inferred. This has the advantage that, if the derivatives are not observable, we can build them into the 2D representation, however, if they are observable then this is less accurate than (1).
+
+(3) A matrix of discounted previous states making a kind of motion history image. This is the formulation used, and shown in figure \ref{fig:state2D}.
+
+A 2D representation like this allows us to use a convolutional neural network, which has the benefit of various transformation invariances - these are particularly useful for the inverted pendulum since it is symmetric.
+
+The state is a histogrammed and discounted function of previous state positions and angles, i.e. $New State = Binned \; Current \; Position + \gamma * Previous State$, where $\gamma$ is a discounting factor, currently set at 0.7. The numpy library in python has a function histogram2d which allows the binning of two-dimensional arrays.
+
+
+
+
+pseudocode, proof and explanation + cost/benefits, improving the binning near the centre.
 
 \subsection{Episode Execution}
 
-\section{Self-Play and Adversaries}
+\section{Self Play and Adversaries}
 
 \subsection{Point of Action}
 symmetry, action choices and PMW
+
+A discrete time step of 0.02s is 35x smaller than this and therefore we expect an impulse to cause $\sim 3\%$ change in the state values. This is far below the threshold for pulse-width modulation, i.e. the actions are fast enough for the input forces to be modelled as continuous **** Is this right?? experimentally, the largest velocities give even better results ****
 
 \subsection{Worst Possible Action}
 
