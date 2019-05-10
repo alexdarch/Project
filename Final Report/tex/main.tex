@@ -17,6 +17,8 @@
 \usepackage{amssymb} % for \therefore
 \usepackage{titlesec}
 \usepackage{subfiles}
+\usepackage{algorithm}
+\usepackage{algorithmic}
 
 \titleformat
 {\chapter} % command
@@ -42,15 +44,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{document}
-%\subfile{./tex/title.tex}
+%\subfile{title.tex}
 \tableofcontents{}
 
-%\subfile{./tex/Introduction.tex}
-\subfile{./tex/TheoryAndMethods.tex}
+%\subfile{Introduction.tex}
+\subfile{TheoryAndMethods.tex}
 
 \clearpage
-\subfile{./tex/Bibliography.tex}
+%\subfile{Bibliography.tex}
 \clearpage
 \appendix
-%\subfile{./tex/Appendix.tex}
+%\subfile{Appendix.tex}
 \end{document}
