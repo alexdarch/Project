@@ -1,14 +1,15 @@
-\documentclass[main.tex]{subfiles}
+\documentclass[../main.tex]{subfiles}
 \begin{document}
-\chapter{Appendicies}
+\chapter{Appendices}
 \section{Inverted Pendulum Dynamics Derivation}
+\label{appendix:invpen}
 
 We can find the state space equations for the Inverted Pendulum using d'Alembert forces. Firstly we define the distance and velocity vectors to the important points:
 
 \begin{align*}
     & \boldsymbol{r}_P = x \boldsymbol{i} \\
-    & \boldsymbol{r}_{B_1/P} = Lsin \theta \boldsymbol{i} + Lcos \theta \boldsymbol{j} \\
-    & \boldsymbol{r}_{B_1} = (x+Lcos \theta)\boldsymbol{i}+L \dot{\theta} sin \theta  \boldsymbol{j} \\
+    & \boldsymbol{r}_{B_1/P} = L sin \theta \boldsymbol{i} + L cos \theta \boldsymbol{j} \\
+    & \boldsymbol{r}_{B_1} = (x+L cos \theta)\boldsymbol{i}+L \dot{\theta} sin \theta  \boldsymbol{j} \\
     & \dot{\boldsymbol{r}}_{B_1} = (\dot{x} + L\dot{\theta}cos\theta)\boldsymbol{i} - L\dot{\theta}sin\theta \boldsymbol{j}
 \end{align*}
 
@@ -19,31 +20,31 @@ Linear Momentum, $\boldsymbol{\rho} = \sum_i m_i \dot{\boldsymbol{r}}_{i/o} = m 
 \begin{bmatrix} (M+m)\dot{x} + ml\dot{\theta}cos{\theta} \\ -ml\dot{\theta}sin{\theta} \\ 0 \end{bmatrix} 
 \end{equation*}
 
-Moment of momentum about P, $\boldsymbol{h}_P = \boldsymbol{r}_{B_1/P} \times m\boldsymbol{\dot{r}}_{B_1}$:
+Moment of momentum about P, $\boldsymbol{h}_P = \boldsymbol{r}_{B_1/P} \times m \boldsymbol{\dot{r}}_{B_1}$:
 
 \begin{align*}
-\boldsymbol{h}_P & = -mL(L\dot{\theta} + \dot{x}cos\theta) \boldsymbol{k} \\
+\boldsymbol{h}_P & = -m L(L\dot{\theta} + \dot{x}cos\theta) \boldsymbol{k} \\
 \therefore \boldsymbol{\dot{h}}_P & = -mL(L\ddot{\theta} + \ddot{x}cos\theta - \dot{x}\dot{\theta}sin\theta) \boldsymbol{k}
 \end{align*}
 
 We can balance moments using $\boldsymbol{\dot{h}}_P + \boldsymbol{\dot{r}}_P \times \boldsymbol{\rho} = \boldsymbol{Q}_{e}$ and $ \boldsymbol{Q}_{e} = \boldsymbol{r}_{B_1/P} \times -mg\boldsymbol{j} + \boldsymbol{r}_{B_2/P} \times F_2 \boldsymbol{i}$:
 \begin{equation*}
 \boldsymbol{\dot{h}}_P + \boldsymbol{\dot{r}}_P \times \boldsymbol{\rho} = 
-\begin{bmatrix} 0 \\ 0 \\ -mL(\ddot{x} cos\theta + L\ddot{\theta}) \end{bmatrix} = \begin{bmatrix} 0 \\ 0 \\ -L(mgsin\theta + 2 F_2 cos \theta) \end{bmatrix} = \boldsymbol{Q}_e
+\begin{bmatrix} 0 \\ 0 \\ -m L (\ddot{x} cos\theta + L\ddot{\theta}) \end{bmatrix} = \begin{bmatrix} 0 \\ 0 \\ -L(m g sin\theta + 2 F_2 cos \theta) \end{bmatrix} = \boldsymbol{Q}_e
 \end{equation*}
 
 And also balance linear momentum using $\boldsymbol{F}_e = \dot{\boldsymbol{\rho}}$:
 
 \begin{equation*}
-    \dot{\boldsymbol{\rho}} = \begin{bmatrix} (m+M)\ddot{x} + mL(\ddot{\theta}cos\theta - \dot{\theta}^2 sin\theta) \\ -mL(\ddot{\theta}sin\theta + \dot{\theta}^2 cos\theta) \\ 0 \end{bmatrix}
+    \dot{\boldsymbol{\rho}} = \begin{bmatrix} (m+M)\ddot{x} + m L(\ddot{\theta}cos\theta - \dot{\theta}^2 sin\theta) \\ -m L(\ddot{\theta}sin\theta + \dot{\theta}^2 cos\theta) \\ 0 \end{bmatrix}
     = \begin{bmatrix} F_1 + F_2 \\ R-mg \\ 0 \end{bmatrix} = \boldsymbol{F}_e
 \end{equation*}
 
 Finally we can write the system dynamics in terms of $\ddot{\theta}$ and $\ddot{x}$:
 
 \begin{align}
-\ddot{\theta}\big(M+msin^2\theta \big)L & = \bigg(\frac{2M-m}{m}F_2-F_1\bigg)cos\theta + g(M+m)sin\theta - mL\dot{\theta}^2 sin\theta cos\theta\\
-\ddot{x}(M+msin^2\theta) & = F_1 + F_2cos(2\theta)+ msin\theta(L\dot{\theta}^2-gcos\theta)
+\ddot{\theta}\big(M+m sin^2\theta \big)L & = \bigg(\frac{2M-m}{m}F_2-F_1\bigg)cos\theta + g(M+m)sin\theta - mL\dot{\theta}^2 sin\theta cos\theta\\
+\ddot{x}(M+m sin^2\theta) & = F_1 + F_2cos(2\theta)+ m sin\theta(L\dot{\theta}^2-g cos\theta)
 \end{align}
 
 
@@ -51,20 +52,70 @@ Simplifying this for our problem by substituting in constants, we can write the 
 
 \begin{equation}
 \begin{bmatrix} \dot{x} \\ \ddot{x} \\ \dot{\theta} \\ \ddot{\theta} \end{bmatrix}  =
-\begin{bmatrix} \dot{x} \\ \frac{\big(\frac{2M-m}{m}F_2-F_1\big)cos\theta + g(M+m)sin\theta - mL\dot{\theta}^2 sin\theta cos\theta}{(M + msin^2\theta)} \\ \dot{\theta} \\ \frac{F_1 + F_2cos(2\theta)+ msin\theta(L\dot{\theta}^2-gcos\theta)}{L(M+msin^2\theta)} \end{bmatrix} 
+\begin{bmatrix} \dot{x} \\ \frac{\big(\frac{2M-m}{m}F_2-F_1\big)cos\theta + g(M+m)sin\theta - mL\dot{\theta}^2 sin\theta cos\theta}{(M + m sin^2\theta)} \\ \dot{\theta} \\ \frac{F_1 + F_2cos(2\theta)+ msin\theta(L\dot{\theta}^2-g cos\theta)}{L(M+m sin^2\theta)} \end{bmatrix} 
 \end{equation}
 
 
-It can be proved that the cartpole system is controllable by showing:
+It can be proved that the inverted pendulum system is controllable by showing:
 
 \begin{equation}
     rank[\boldsymbol{B} \; \boldsymbol{AB} \; \boldsymbol{A^2B} \; \boldsymbol{A^3B}] = 4
 \end{equation}
 Therefore for any initial condition we can reach $\boldsymbol{x}_e$ in finite time under these linear assumptions.
-However, for $\theta \approx 0$ we need a more sophistocated model.
+However, for $\theta \approx 0$ we need a more sophisticated model.
 
 \subsection{Swing Up Control}
 
-One way to get the cart to swing the pendulum up to the linear-range is to find a homoclinic orbit (a trajectory that passes though an unstable fixed point). I.e. we must find a controller that that drives the pendulum to the unstable equilibrium. This can be done using energy shaping, and in the context of the cartpole, this constitutes applying force to maximise the potential energy and minimise kinetic. Once in the linear region we then switch to an LQR controller to complete the task.
+One way to get the cart to swing the pendulum up to the linear-range is to find a homoclinic orbit (a trajectory that passes though an unstable fixed point). I.e. we must find a controller that that drives the pendulum to the unstable equilibrium. This can be done using energy shaping, and in the context of the inverted pendulum, this constitutes applying force to maximise the potential energy and minimise kinetic. Once in the linear region we then switch to an LQR controller to complete the task.
 
+\section{Propagation of Quantisation Error}{
+\label{appendix:quant}
+\newcommand{\bx}[1]{\boldsymbol{x}_{#1}}
+\newcommand{\bu}[1]{\boldsymbol{u}_{#1}}
+
+The state space model for the quantisation of the linearised inverted pendulum can be written as:
+\begin{align}
+    &\bx{t}^{(2D)} = C\bx{t} + \boldsymbol{V}_t \hspace{3cm} \boldsymbol{V}_t \sim WN(0, \sigma_v^2I) \\
+    &\bx{t} = A \bx{t-1} + B\bu{t}
+\end{align}
+
+Where A and B are the linearised system dynamics (valid for small time steps), and C is the linear transformation to a 2D state space, with quantisation noise \textbf{V}.
+
+*** This derivation here is for 1D and also follows the derivation from 4F7, which does not take into account actions (B=0), and has additional noise on the second equation. However, because actions are deterministic, it should have no effect on the propagated MSE. Could fairly easily do a full derivation for this, but is it that necessary? Also $\sigma_v^2$ is not true, as this is only a 1D error. Finally, possible spanner... Limiting the memory of the system to only t-k could place limits on the accuracy? Should do full derivation if time allows. Note, is this even the correct way to go about this? Can we assume a neural network will act as a kalman filter?***
+
+Assuming the quantisation bin size, $\delta x$, is small, the quantisation noise can be modelled as uniform random variable with a mean squared error:
+
+\begin{equation}
+    \sigma_v^2 = \mathbb{E}[V_n^2] = \int^{\delta x/2}_{-\delta x/2} u^2 \cdot \frac{1}{\delta x} du = \frac{\delta x^2}{12}
+\end{equation}
+
+Kalman filtering can be used to find an optimal estimate $\hat{X}_n = K[X_n | Y_{n-k:n}]$ using the algorithm (derived in \cite{4f7}).
+
+\begin{algorithm}
+    \caption{Kalman Filtering}
+    \label{alg:kalman}
+    \begin{algorithmic}[1]
+       \State \textbf{Given:} $\hat{X}_n = K[X_n | Y_{n-k:n}]$ and $\sigma^2 = \mathbb{E}[(X_n - \hat{X}_n)^2]$
+       \Statex
+       \Statex \textbf{Prediction:}
+       \State $\bar{X}_{n+1} = K[X_n | Y_{n-k:n}] = f_n \hat{X}_n$
+       \State $\bar{\sigma}^2_{n+1} = \mathbb{E}[(X_{n+1} - \bar{X}_{n+1})^2] = f_n \sigma_n^2 + \sigma_w^2$
+       \Comment{$\sigma_w^2 = 0$}
+       \Statex
+       \Statex \textbf{Update:}
+       \State $I_{n+1} = Y_{n+1} - g_{n+1}\bar{X}_{n+1}$
+       \State $\hat{X}_{n+1} = \bar{X}_{n+1} + $\scalebox{1.5}{$\frac{g_{n+1}\bar{\sigma}_{n+1}^2}{g_{n+1}^2 \bar{\sigma}_{n+1}^2 + \sigma_v^2}$}$ I_{n+1}$
+       \Comment{$\sigma_v^2 = \frac{\delta x^2}{12}$}
+       \State $\sigma_{n+1}^2 = \bar{\sigma}_{n+1}^2 \bigg(1 - $\scalebox{1.5}{$\frac{g_{n+1}^2 \bar{\sigma}_{n+1}^2}{g_{n+1}^2 \bar{\sigma}_{n+1}^2 + \sigma_v^2}$}   \bigg)
+    \end{algorithmic}
+ \end{algorithm}
+
+ Thus we can find the optimal mean squared error of the next value from \cref{alg:kalman} line 6:
+
+ \begin{equation}
+    \sigma_{n+1}^2 = f_n\sigma_n^2 \bigg(1 - \frac{f_n\sigma_n^2}{ f_n\sigma_n^2 + \sigma_v^2}  \bigg)
+ \end{equation}
+}
+
+\onlyinsubfile{\subfile{Bibliography.tex}}
 \end{document}

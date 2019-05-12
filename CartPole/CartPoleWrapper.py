@@ -135,7 +135,7 @@ class CartPoleWrapper(CartPoleEnv):
             prev_pos[prev_pos < 1 / (2 ** 9)] = 0   # only keep up to 8 times steps back
             return new_pos + self.discount * prev_pos
         else:
-            prev_state_2d[prev_state_2d < 1 / (2 ** 9)] = 0
+            prev_state_2d[prev_state_2d < 1 / (self.discount ** 9)] = 0
             return new_pos + self.discount * prev_state_2d
 
     def state_loss(self, state=None):

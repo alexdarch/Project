@@ -1,4 +1,4 @@
-\documentclass[main.tex]{subfiles}
+\documentclass[../main.tex]{subfiles}
 \begin{document}
 \chapter{Introduction}
 
@@ -24,7 +24,7 @@ The dynamic programming equations above, where $c(x_i, u_i)$ is the cost as a fu
 This enables a backwards recursion to find a sequence of value functions. This can be solved for the linear case with quadratic costs analytically (LQR) or, if the system is non-linear, via gradient descent. However, over a finite horizon this is essentially open-loop control. Optimal control of this form has been used to control complex dynamical systems such as spaceflight and aileron folding on aircraft \cite{aircraftoptcont, aileronoptcont}. A closed loop extension to this is Model Predictive Control (MPC), which employs a receding horizon rather than a finite or infinite horizon. MPC can therefore easily deal with plant disturbances and uncertainties, constraints, indefinite horizons and can also be extended to get a control law for non-linear systems. MPC has recently been shown to work in trajectory control for interplanetary rovers \cite{rovermpc}. Optimal control is limited in requiring sophisticated models of the environment/plant and generally struggle with highly non-linear models - state of the art is currently linearisation about the predicted trajectory. Furthermore, it is only feasible to 'grid' up to 5/6 dimensions in discrete cases \cite{4f3}. 
 
 \section{Reinforcement Learning}
-Two further generalisations to dynamical systems and optimal control as defined in equation \ref{equ:detval} are stochastic dynamics and indefinite horizons (i.e. episodic tasks). This discrete time stochastic control process is known as a Markov Decision Process (MPD). In MDPs the cost function is often written as a reward function and, due to the indefinite nature of the process, the value function for the next step is discounted (where $\lambda \approx 0.9$ typically):
+Two further generalisations to dynamical systems and optimal control as defined in \cref{equ:detval} are stochastic dynamics and indefinite horizons (i.e. episodic tasks). This discrete time stochastic control process is known as a Markov Decision Process (MPD). In MDPs the cost function is often written as a reward function and, due to the indefinite nature of the process, the value function for the next step is discounted (where $\lambda \approx 0.9$ typically):
 
 \begin{align}
     \label{equ:mdpval} 
@@ -42,14 +42,14 @@ A key feature of AlphaZero is that it only requires the ability to simulate the 
 
 \subsection{Self Play and The Neural Network}
 
-Figure \ref{fig:selfplay}a
+\Cref{fig:selfplay}a
 shows how self-play is performed in AlphaZero. An episode/game, $\{s_1, ..., s_T\}$ is played and for each state, $s_t$, a Monte-Carlo Tree Search is performed, guided by the current policy $f_\theta$. The MCTS outputs an improved action-\textit{p.m.f}, $\boldsymbol{\pi}_t = [p(a_1|s_t), p(a_2|s_t), ..., p(a_N|s_t)]$. The next move is then selected by sampling from $\boldsymbol{\pi}_t$. The final player then gets scored (e.g in chess $z \in \{-1, 0, 1\} $ for a loss, draw or win respectively). The game score, z, is then appended to each state-action pair depending on who the current player was on that move to give training examples of the form $(s_t, \boldsymbol{\pi}_t, (-1)^{\mathbb{I}(winner)}z)$. 
 
-The neural network, $f_\theta(s)$ takes a board state, s, and outputs a \textit{p.m.f} over all actions and the expected outcome, $(\boldsymbol{p}_\theta, v)$ (figure \ref{fig:selfplay}). The networks are initialised with $\theta \sim \mathcal{N}(0, \epsilon)$, $\epsilon$ small. The neural network is trained to more closely match the MCTS-informed action-\textit{p.m.f.}s, $\boldsymbol{\pi}_t$, and the expected outcome (state-value), $v_t$ to z.
+The neural network, $f_\theta(s)$ takes a board state, s, and outputs a \textit{p.m.f} over all actions and the expected outcome, $(\boldsymbol{p}_\theta, v)$ (\cref{fig:selfplay}). The networks are initialised with $\theta \sim \mathcal{N}(0, \epsilon)$, $\epsilon$ small. The neural network is trained to more closely match the MCTS-informed action-\textit{p.m.f.}s, $\boldsymbol{\pi}_t$, and the expected outcome (state-value), $v_t$ to z.
 
 \begin{wrapfigure}{l}{0.6\textwidth}
    \centering
-   \includegraphics[width=0.58\textwidth]{../Figures/SelfPlay.jpg}
+   \includegraphics[width=0.58\textwidth]{SelfPlay.jpg}
    \caption{A schematic showing how self-play and policy training are performed. Taken from \cite{AlphaGoZero}.}
    \label{fig:selfplay}
    \vspace{0.5cm}
@@ -67,7 +67,7 @@ The network itself consists of an input convolutional block and two separate 'he
 
 \subsection{Monte Carlo Tree Search}
 
-Figure \ref{fig:MCTS}a:
+\Cref{fig:MCTS}a:
 A MCTS is performed at each step of an episode. The state at which the tree search starts then becomes the root state, $s_{root}$. From the root state, the tree search can move to an edge (s, a) by selecting an action, a. Before selection a prior $P(s, a) = (1-\epsilon)\boldsymbol{p}_{\theta, root} + \epsilon \boldsymbol{\eta}$ where $\boldsymbol{\eta} \sim Dir(0.3)$ and $\epsilon = 0.25$ is added to ensure exploration. Each edge stores a prior action-\textit{p.m.f.} output by the policy, P(s, a)=$\boldsymbol{p}_\theta$; a visit count, N(s, a); and an action-value, Q(s, a). Actions are selected by maximising an the action-value plus an upper confidence bound, which encourages exploration. The constant c ($\sim 1$) can be decreased to encourage exploitation.
 
 \begin{equation}
@@ -75,10 +75,10 @@ A MCTS is performed at each step of an episode. The state at which the tree sear
    \label{eqn:ucb}
 \end{equation}
 
-Figure \ref{fig:MCTS}b:
+\Cref{fig:MCTS}b:
 Once a leaf node (N(s, a) = 0) is reached, the neural network is evaluated at that state: $f_\theta (s) = (p(s, \cdot), v(s))$. The action \textit{p.m.f.} and state-value are stored for the leaf state.
 
-Figure \ref{fig:MCTS}c:
+\Cref{fig:MCTS}c:
 The action-values, Q, are calculated as the mean of state-values in the subtree below that action. The state-value are then calculated as the mean of all the action-values branching from that state, and so on.
 
 \begin{equation}
@@ -86,12 +86,12 @@ The action-values, Q, are calculated as the mean of state-values in the subtree 
    \label{eqn:actionvalue}
 \end{equation} 
 
-Figure \ref{fig:MCTS}d:
+\Cref{fig:MCTS}d:
 After a set number of simulations (1600), the MCTS-improved action \textit{p.m.f}s, $\boldsymbol{\pi} = p(\boldsymbol{a} | s_{root}) \propto N^{1/\tau}$ are returned, where N is the visit count of each move from the root state and $\tau$ controls the sparseness of the probability mass function $(\{\tau = 0\} \rightarrow argmax\{N(s, a)\})$. For self-play, $\tau = 1$ for the first 30 moves and $\tau \rightarrow 0$ thereafter. For evaluation $\tau \rightarrow 0 \; \forall t$. If $\tau \rightarrow 0$ then $\boldsymbol{\pi}$ becomes one-hot and the loss function of the neural network makes sense as a prediction of a categorical distribution.
 
 \begin{figure}[H]
    \centering
-   \includegraphics[width=\textwidth]{../Figures/MCTS.jpg}
+   \includegraphics[width=\textwidth]{MCTS.jpg}
    \caption{\label{fig:MCTS} A schematic outlining the steps involved in a monte-carlo tree search. Taken from \cite{AlphaGoZero}.}
 \end{figure}
 
@@ -99,7 +99,9 @@ After a set number of simulations (1600), the MCTS-improved action \textit{p.m.f
 
 AlphaZero uses a single neural network that continually updates, whether it is better or worse than the previous network. Whereas AlphaGo Zero games are generated using the best player from all previous iterations and then only replaced if the new player wins $> 50\%$ of evaluation games played.
 
-Evaluation is done by playing 400+ greedy $(\tau \rightarrow 0)$ games of the current best neural network against the challenging neural network. The networks are then ranked based on an elo scoring system. \\
+Evaluation is done by playing 400+ greedy $(\tau \rightarrow 0)$ games of the current best neural network against the challenging neural network. The networks are then ranked based on an elo scoring system.
+
+\vspace{2cm}
 
 The application of AlphaZero to dynamical systems a number of potential benefits above traditional optimal control or reinforcement learning:
 \begin{description}
@@ -110,8 +112,6 @@ The application of AlphaZero to dynamical systems a number of potential benefits
 
 This project investigates these.
 
-\chapter{Theory and Methodology}
-Explain the assumptions behind the theoretical development you are using and the application of the theory to your particular problem. Any heavy algebra or details of computing work should go into an appendix.
-
+\onlyinsubfile{\subfile{Bibliography.tex}}
 
 \end{document}

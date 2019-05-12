@@ -6,26 +6,28 @@
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
 \usepackage{graphicx}
-\usepackage{hyperref} 
+\graphicspath{{Figures/}{../Figures/}} 
 \usepackage{cleveref}
 \usepackage{wrapfig}
 \usepackage{bbm} % for indicator function \mathbbm{1}
 \usepackage{pdfpages}
 \usepackage{multirow}
-%\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[colorinlistoftodos]{todonotes}
 \usepackage{float}
 \usepackage{amssymb} % for \therefore
 \usepackage{titlesec}
 \usepackage{subfiles}
+\newcommand{\onlyinsubfile}[1]{#1}
+\newcommand{\notinsubfile}[1]{}
+\usepackage{algorithm}
 \usepackage{algpseudocode}
-\usepackage{algorithmicx}
 
 \titleformat
 {\chapter} % command
 [display] % shape
 {\bfseries\Huge} % format
 {} % label
-{-10ex} % sep
+{-4cm} % sep
 {
     \rule{\textwidth}{1pt}
     \vspace{1ex}
@@ -35,6 +37,7 @@
 \vspace{0ex}%
 \rule{\textwidth}{0.3pt}
 ] % after-code
+
 \titleformat{\section}
 {\bfseries\Large}
 {\thesection}{0.5em}{}
@@ -44,15 +47,18 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{document}
-%\subfile{title.tex}
+\renewcommand{\onlyinsubfile}[1]{}
+\renewcommand{\notinsubfile}[1]{#1}
+
+\subfile{./tex/title.tex}
 \tableofcontents{}
 
-%\subfile{Introduction.tex}
-\subfile{TheoryAndMethods.tex}
+\subfile{./tex/Introduction.tex}
+\subfile{./tex/TheoryAndMethods.tex}
 
 \clearpage
-%\subfile{Bibliography.tex}
+\subfile{./tex/Bibliography.tex}
 \clearpage
 \appendix
-%\subfile{Appendix.tex}
+\subfile{./tex/Appendix.tex}
 \end{document}
