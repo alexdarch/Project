@@ -66,12 +66,13 @@ For chess, the input state consists of an image stack of 119 8x8 planes represen
 The network itself consists of an input convolutional block and two separate 'heads'. The policy head has softmax activation function, preceded by series of ReLU linear layers and batch normalisation layers. The value head also has this but with a tanh output activation. The input convolutional block consists a single convolutional layer followed by 19-39 residual blocks.
 
 \subsection{Monte Carlo Tree Search}
+\label{sec:mctsintro}
 
 \Cref{fig:MCTS}a:
-A MCTS is performed at each step of an episode. The state at which the tree search starts then becomes the root state, $s_{root}$. From the root state, the tree search can move to an edge (s, a) by selecting an action, a. Before selection a prior $P(s, a) = (1-\epsilon)\boldsymbol{p}_{\theta, root} + \epsilon \boldsymbol{\eta}$ where $\boldsymbol{\eta} \sim Dir(0.3)$ and $\epsilon = 0.25$ is added to ensure exploration. Each edge stores a prior action-\textit{p.m.f.} output by the policy, P(s, a)=$\boldsymbol{p}_\theta$; a visit count, N(s, a); and an action-value, Q(s, a). Actions are selected by maximising an the action-value plus an upper confidence bound, which encourages exploration. The constant c ($\sim 1$) can be decreased to encourage exploitation.
+A MCTS is performed at each step of an episode. The state at which the tree search starts then becomes the root state, $s_{root}$. From the root state, the tree search can move to an edge (s, a) by selecting an action, a. Before selection a prior $P(s, a) = (1-\epsilon)\boldsymbol{p}_{\theta, root} + \epsilon \boldsymbol{\eta}$ where $\boldsymbol{\eta} \sim Dir(0.3)$ and $\epsilon = 0.25$ is added to ensure exploration. Each edge stores a prior action-\textit{p.m.f.} and an initial value $\boldsymbol{p}_\theta (s_{t-1}, a_{t-1}), v(s_{t-1}, a_{t-1}) =f_\theta(s_t)$ \footnote{note that action $a_{t-1}$ from state $s_{t-1}$ yields state $s_t$, if the system is deterministic. Therefore, $(s_{t-1}, a_{t-1}) = (s_t)$ in this setting.}; a visit count, N(s, a); and an action-value, Q(s, a). Actions are selected by maximising an the action-value plus an upper confidence bound, which encourages exploration. The constant c ($\sim 1$) can be increased to encourage exploration.
 
 \begin{equation}
-   a_{selected} = \underset{\forall a}{argmax} \Big{\{}Q(s, a) + c \cdot P(s, a)\frac{\sqrt{\sum_b N(s, b)}}{1 + N(s, a)}\Big{\}}
+   a_{selected} = \underset{\forall a}{argmax} \Big{\{}Q(s, a) + c \cdot\boldsymbol{p}_\theta (s, a)\frac{\sqrt{\sum_b N(s, b)}}{1 + N(s, a)}\Big{\}}
    \label{eqn:ucb}
 \end{equation}
 
@@ -87,7 +88,7 @@ The action-values, Q, are calculated as the mean of state-values in the subtree 
 \end{equation} 
 
 \Cref{fig:MCTS}d:
-After a set number of simulations (1600), the MCTS-improved action \textit{p.m.f}s, $\boldsymbol{\pi} = p(\boldsymbol{a} | s_{root}) \propto N^{1/\tau}$ are returned, where N is the visit count of each move from the root state and $\tau$ controls the sparseness of the probability mass function $(\{\tau = 0\} \rightarrow argmax\{N(s, a)\})$. For self-play, $\tau = 1$ for the first 30 moves and $\tau \rightarrow 0$ thereafter. For evaluation $\tau \rightarrow 0 \; \forall t$. If $\tau \rightarrow 0$ then $\boldsymbol{\pi}$ becomes one-hot and the loss function of the neural network makes sense as a prediction of a categorical distribution.
+After a set number of simulations (1600), the MCTS-improved action \textit{p.m.f}s, $\boldsymbol{\pi} = p(\boldsymbol{a} | s_{root}) \propto N^{1/\tau}$, are returned where N is the visit count of each move from the root state and $\tau$ controls the sparseness of the probability mass function $(\{\tau = 0\} \rightarrow argmax\{N(s, a)\})$. For self-play, $\tau = 1$ for the first 30 moves and $\tau \rightarrow 0$ thereafter. For evaluation $\tau \rightarrow 0 \; \forall t$. If $\tau \rightarrow 0$ then $\boldsymbol{\pi}$ becomes one-hot and the loss function of the neural network makes sense as a prediction of a categorical distribution.
 
 \begin{figure}[H]
    \centering
@@ -101,7 +102,24 @@ AlphaZero uses a single neural network that continually updates, whether it is b
 
 Evaluation is done by playing 400+ greedy $(\tau \rightarrow 0)$ games of the current best neural network against the challenging neural network. The networks are then ranked based on an elo scoring system.
 
-\vspace{2cm}
+\section{Ranking and Elo Rating}
+
+The Elo rating system is a method of finding players' relative skills in two player games such as chess \cite{elo}. The Elo system is based upon every player having an average skill level $\mu_i$, and variation distributed normally about their mean , i.e. $skill \sim \mathcal{N}(skill | \mu_i, \sigma)$. Therefore, the probability of one player beating the other is given by the c.d.f. of the difference of their gaussians. This can be approximated as a logistic function, and written as:
+
+\begin{equation}
+   \label{equ:elo}
+   \mathbb{E}[s_{p1}] = \frac{1}{1+10^{(\mu_{p2} - \mu_{p1})/400}}
+\end{equation}
+
+Where 400 is a scaling factor such that the means can be used as the player rating, and s is the score. The rule for then updating each player's rating is given by:
+
+\begin{equation}
+   \mu^{(new)} = \mu^{(old)} + 32(Score - \mathbb{E}[s])
+\end{equation}
+
+where 32 is again an arbitrary constant. New players are given an initial ranking of 1000.
+
+\section{Summary of Objectives}
 
 The application of AlphaZero to dynamical systems a number of potential benefits above traditional optimal control or reinforcement learning:
 \begin{description}

@@ -5,12 +5,10 @@
 
 \chapter{Theory and Methods}
 
-Explain the assumptions behind the theoretical development you are using and the application of the theory to your particular problem. Any heavy algebra or details of computing work should go into an appendix. This section should describe the running of the experiment or experiments and what equipment was used, but should not be a blow by blow account of your work. Experimental accuracy could be discussed here.
-
 \section{The Inverted Pendulum (IP)}
-The Inverted Pendulum is an inherently unstable system with highly nonlinear dynamics and is under-actuated.
 
 \subsection{Dynamics}
+The Inverted Pendulum is an inherently unstable system with highly nonlinear dynamics and is under-actuated.
 
 \begin{figure}[ht]
     \centering
@@ -48,7 +46,7 @@ Ignoring second order terms and linearising about $\boldsymbol{x}_e = [x_e, \dot
 
 Which, as expected, is unstable since $det(\lambda I - A) = 0 \implies \lambda^2(\lambda^2 + \frac{mg}{lM}) = 0$. Note, for small angles the natural frequency of a non-inverted pendulum is $\omega_n = \sqrt{\frac{mg}{lM}} = \sqrt{\frac{0.1\times 9.81}{0.5\times 1}} \approx 1.40 rad/s$. Therefore, the time constant for the system is $\tau \approx 0.70s$. 
 
-OpenAI's gym is a python package that supplies an inverted pendulum environment built-in. This environment was wrapped to use the dynamics above and other extra functionality, whilst providing a rendering function shown in \cref{fig:openai}.
+OpenAI's gym is a python package that supplies an inverted pendulum environment built-in (called CartPole). This environment was wrapped to use the dynamics above and other extra functionality, whilst providing a rendering function shown in \cref{fig:openai}.
 
 \begin{figure}[H]
    \centering
@@ -63,6 +61,7 @@ For each step/impulse, the 2D state is calculated and a cost, is calculated as:
 \begin{equation}
    c(x_t, u_t) = - \frac{1}{\sum_{i} w_i} \boldsymbol{w} \cdot \bigg[ \Big(\frac{x_t}{x_{max}}\Big)^2,  \Big(\frac{\dot{x}_t}{\dot{x}_{max}}\Big)^2,  \Big(\frac{\theta_t}{\theta_{max}}\Big)^2,  \Big(\frac{\dot{\theta}_t}{\dot{\theta}_{max}}\Big)^2 \bigg]^T
 \end{equation}
+\todo{better layout? $x^TQx$}
 
 Where $\boldsymbol{w}^T = [w_1, w_2, w_3, w_4] = [0.25, 0.1, 0.7, 1]$ and $0 \geq c(x_t, u_t) \geq -1$. The weights, $\boldsymbol{w}$, were chosen through empirical measurement of the the importance of each state ***. Weighting on the inputs was set to zero, as there are only two inputs for this problem, thus the cost can be written as $c(x_t)$. The max values can be approximated experimentally (note, $x_{max} = 2.4$ and $\theta_{max} = 12^o$ are given constraints):
 
@@ -84,27 +83,26 @@ Where for simplicity of notation, $v_0 = v(t)$, the state value at step t.
 
 \subsection{State Representations}
 
-The state can be represented in a number of ways, most simply this would just be feeding $\boldsymbol{x} = [x, \dot{x}, \theta, \dot{\theta}]$ into the neural network. This has a number of advantages such as lower computational cost, greater numerical accuracy (if the process is fully observable) and simpler implementation. Conversely, following Silver et. al, a 2D representation can be used. There are several possibilities for this, all of which first require binning $\boldsymbol{x}$:
-
 \begin{wrapfigure}{R}{0.6\textwidth}
-   % \vspace{-1cm}
    \centering
    \includegraphics[width=0.6\textwidth]{State2D.PNG}
-   \vspace{-20pt}
    \caption{An example of a 2D state representation where there are 20 bins and 17 random actions have been taken.}
+   \vspace{0.5cm}
    \label{fig:state2D}
 \end{wrapfigure}
 
+The state can be represented in a number of ways, most simply this would just be feeding $\boldsymbol{x} = [x, \dot{x}, \theta, \dot{\theta}]$ into the neural network. This has a number of advantages such as lower computational cost, greater numerical accuracy (if the process is fully observable) and simpler implementation. Conversely, following Silver et. al, a 2D representation can be used. There are several possibilities for this, all of which first require binning $\boldsymbol{x}$:
+
 (1) A matrix stack of x vs $\dot{x}$ and $\theta$ vs $\dot{\theta}$, both of which would only have one non-zero entry. This scales as $b^n$ where b = number of bins and n = number of states.
 
-(2) A matrix stack of $x_t$ vs $x_{t-1}$ for all states. Similarly this scales as $b^n$, however the derivative states do not need to be plotted as these can be inferred. This has the advantage that, if the derivatives are not observable, we can build them into the 2D representation, however, if they are observable then this is less accurate than (1).
+(2) A matrix stack of $x_t$ vs $x_{t-1}$ for all states. Similarly this scales as $b^n$, however the derivative states do not need to be plotted as these can be inferred. This has the advantage that, if the derivatives are not observable, they are built into the 2D representation, however, if they are observable then this is less accurate than (1).
 
 (3) A matrix of discounted previous states forming a motion history image. This is the formulation used, and shown in \cref{fig:state2D}. \cref{alg:state2d} shows the implementation details.
 
 A 2D representation like this allows us to use a convolutional neural network, which has the benefit of various transformation invariances - these are particularly useful for the inverted pendulum since it is symmetric.
 
 
-\begin{algorithm}
+\begin{algorithm}[b]
    \newcommand{\normx}{\hat{\boldsymbol{x}}}
    \caption{Create 2D State}
    \label{alg:state2d}
@@ -147,7 +145,7 @@ The initial mean squared error, and the propagation of the error (when estimated
 
 If the spectral density of \cref{equ:errorb} is less than one then the error will decay to zero, and the neural network (if acting as an optimal filter) should be able to recover $\boldsymbol{x}$ without loss. The number of steps needed for this recovery decreases with smaller bin sizes since $\underset{\delta x \rightarrow 0}{lim} \sigma_v^2 = 0$, and $\sigma_v^2$ decays with $\delta x^2$. \todo{Work out how small vs how many steps (possibly with a second order approx?)}
 
-With limited memory and a non-zero bin size the overall error can be reduced by binning more densely in regions in which we expect to spend more time. \Cref{fig:ranges} shows that the state visit frequencies roughly correspond to normal distribution, therefore by transforming the bins with an inverse gaussian c.f.d. a flattened distribution can be obtained with a greater density of bins in the centre (\cref{fig:binning}). This has the additional benefit of allowing finer control where it is needed. For example, if the pole is far from the equilibrium the optimal action more easily determined, and subject to less change with small state variations.
+With limited memory and a non-zero bin size the overall error can be reduced by binning more densely in regions in which the IP is expected to spend more time. \Cref{fig:ranges} shows that the state visit frequencies roughly correspond to normal distribution, therefore by transforming the bins with an inverse gaussian c.f.d. a flattened distribution can be obtained with a greater density of bins in the centre (\cref{fig:binning}). This has the additional benefit of allowing finer control where it is needed. For example, if the pole is far from the equilibrium the optimal action more easily determined, and subject to less change with small state variations.
 
 \begin{figure}[h]
    \centering
@@ -158,7 +156,7 @@ With limited memory and a non-zero bin size the overall error can be reduced by 
 
 \subsection{Discrete vs Continuous Time}
 
-For a small enough discrete time step, the simulation will approximate the continuous process very well. Additionally, we can achieve pseudo-continuous actions within the constraint of $u \in \{-1, 1\}$ via pulse-width modulation. A time step of 0.02s is 35x smaller than the time constant of the linearised system ($\tau \approx 0.70s$). The positional change per time step is therefore $\sim \frac{1}{35}\% = 3\%$. Alternatively the average maximum velocities are $3m/s$ and $2rad/s$, thus the maximum positional change per time step is $\dot{x}_{i, max} \times \frac{\tau}{x_{i, max}} = 2.5\%$ and $30\%$ respectively. In practice a $30\%$ change in $\theta$ would only occur around $\theta_{max}$ and would be uncontrollable, therefore we can take the change to be far less than this \todo{can we? Also proof of uncontrollabiltiy?}. Therefore, we can model the quick succession of actions as a continuous one:
+For a small enough discrete time step, the simulation will approximate the continuous process very well. Additionally pseudo-continuous actions can be achieved within the constraint of $u \in \{-1, 1\}$ via pulse-width modulation. A time step of 0.02s is 35x smaller than the time constant of the linearised system ($\tau \approx 0.70s$). The positional change per time step is therefore $\sim \frac{1}{35}\% = 3\%$. Alternatively the average maximum velocities are $3m/s$ and $2rad/s$, thus the maximum positional change per time step is $\dot{x}_{i, max} \times \frac{\tau}{x_{i, max}} = 2.5\%$ and $30\%$ respectively. In practice a $30\%$ change in $\theta$ would only occur around $\theta_{max}$ and would be uncontrollable, therefore the change can be assumed to be less than this \todo{can it? Also proof of uncontrollabiltiy?}. Therefore, the quick succession of actions can be modelled as a continuous one:
 
 \begin{equation}
    F(t) = g(t) * \int^\infty_0 u(t) dt \approx g(t) \sum^\infty_{n=0} I\tau \delta(t-n\tau)
@@ -168,24 +166,24 @@ For a small enough discrete time step, the simulation will approximate the conti
 
 \subsection{Cost and Value Functions of the Adversary}
 
-In AlphaZero, the adversary is working to minimise the value function and the player is working to maximise it. For board games where players are on equal footing a value function representing the expected outcome, $-1 < v < 1$ can be used. This has the advantage of symmetry - when the board is viewed from the other player's perspective the value can be multiplied by -1, and we get the expected outcome for that player.
+In AlphaZero, the adversary is working to minimise the value function whereas the player is working to maximise it. For board games, where agents are on equal footing, a value function ($-1 < v < 1$) representing the expected outcome can be used. This has the advantage of symmetry - when the board is viewed from the other agent's perspective the value can be multiplied by -1, giving the expected outcome for that agent.
 
-The adversary for the inverted pendulum has the additional advantage of gravity, making the play un-symmetric. Given that both the state-value and cost are $-1 < v, c < 0$, multiplying by -1 would mean the adversary is maximising a value function $0 < v < 1$. State-values outside these ranges have no meaning. If a single neural network is used, values close to equilibrium may be predicted into the wrong range. Consequently, both the adversary and the player must predict true state-values. This also has the advantage of maintaining an intuitive meaning of the state-value.
+The adversary for the inverted pendulum has the additional advantage of gravity, making the play asymmetric. Given that both the state-value and cost are $-1 < v, c < 0$, multiplying by -1 would mean the adversary is maximising a value function $0 < v < 1$. State-values outside these ranges have no meaning. If a single neural network is used, values close to equilibrium may be predicted into the wrong range. Consequently, both the adversary and the player must predict true state-values. This also has the advantage of maintaining an intuitive meaning of the state-value.
 
 \subsection{Choice of Action}
 
-The inverted pendulum system is symmetric in both $x$ and $\theta$ allowing for the possibility of taking advantage of this, however as shown with AlphaZero \cite{AlphaZero}, this provides minimal benefit and also hinders generalisation. The adversarial point of action was chosen to be at the top of the pole, acting horizontally (\cref{fig:invpen}). Thus ensuring that two distinct policies must be learnt, rather than one being just inverse probabilities of the other. For simplicity $u_{adv} \in \{-1, 1\}$ was chosen.
+The inverted pendulum system is symmetric in both $x$ and $\theta$ allowing for the possibility of taking advantage of this, however as shown with AlphaZero \cite{AlphaZero}, this provides minimal benefit and also hinders generalisation. The adversarial point of action was chosen to be at the top of the pole, acting horizontally (\cref{fig:invpen}), thus ensuring that two distinct policies must be learnt, rather than one being just inverse probabilities of the other. For simplicity $u_{adv} \in \{-1, 1\}$ was chosen.
 
-There are two good ways of representing when it is the adversaries turn for the neural network: 
+There are two good ways of representing whether it is the adversary's turn for the neural network: 
 \begin{description}
-   \item[Multiply the board representation by -1] such that opponent pieces are negative. This can only take two players and; A network that outputs both state-values and action \textit{p.m.f.}'s should predict the same state values for both player and adversary, but predict vastly different actions. Therefore, the values will be decoupled from the actions, which was one of the major benefits of using a single neural network. However, a single network is simpler, and this more closely follows AlphaZero's methodology.
+   \item[Multiply the board representation by -1] such that opponent pieces are negative. This can only take two agents and; a network that outputs both state-values and action \textit{p.m.f.}'s should predict the same state values for both player and adversary, but predict vastly different actions. Therefore, the values could be decoupled from the actions, which was one of the major benefits of using a single neural network. However, a single network is simpler, and negating the board more closely follows AlphaZero's methodology.
 
-   \item[Record the player number with each example] and use player-labeled examples to train different neural networks. Using a neural network for each player causes half of the examples to be lost as only the relevant player's examples are used to train each network. However, this doesn't suffer from the problems above and can cope with agents with a different number of possible actions more easily.
+   \item[Record the agent with each example] and use agent-labeled examples to train different neural networks. Using a neural network for each agent causes half of the examples to be lost as only the relevant agent's examples are used to train each network. However, this doesn't suffer from the problems above and can cope with agents with a different number of possible actions more easily.
 \end{description}
 
 *** Currently method 2 is being used, but subject to change ***
 
-Note, in the case of the inverted pendulum, the optimal action is the inverse of the worst action. However, this is not a general result, for example, in a system with non-linear and asymmetric dynamics it is possible to have the target perpendicular to the limit of stability, thus for the adversary it is better to push the system into instability rather than away from equilibrium.
+Note, in the case of the inverted pendulum, the optimal action is the inverse of the worst action. However, this is not a general result. For example, in a system with non-linear and asymmetric dynamics it is possible to have the target perpendicular to the closest edge of the invariant set, thus for the adversary it is better to push the system into instability rather than away from equilibrium.
 
 \subsection{Episode Execution}
 
@@ -199,17 +197,17 @@ Pseudocode for episode execution following the sections above is shown in \cref{
       \State $example \leftarrow []$
       \State $\boldsymbol{x}, \boldsymbol{x}^{(2D)}, c \leftarrow resetEpisode()$
       \Comment{Set initial $\boldsymbol{x}$ randomly and initialise the cost}
-      \State $player\leftarrow 0$
+      \State $agent\leftarrow 0$
       \Repeat
-         \State $\boldsymbol{\pi} \leftarrow getActionProb(\boldsymbol{x}, \boldsymbol{x}^{(2D)}, player)$
+         \State $\boldsymbol{\pi} \leftarrow getActionProb(\boldsymbol{x}, \boldsymbol{x}^{(2D)}, agent)$
          \Comment{Perform MCTS Simulations}
-         \State $example.append((\boldsymbol{x}^{(2D)}, \boldsymbol{\pi}, c, player))$
+         \State $example.append((\boldsymbol{x}^{(2D)}, \boldsymbol{\pi}, c, agent))$
          \State $u \sim \boldsymbol{\pi}$
          \Comment{Sample action}
          \State $\boldsymbol{x}, c \leftarrow step(\boldsymbol{x}, u)$
          \Comment{Take next true episode step}
          \State $\boldsymbol{x}^{(2D)} \leftarrow getState2D(\boldsymbol{x}, \boldsymbol{x}^{(2D)})$
-         \State $player \leftarrow nextPlayer(player)$
+         \State $agent \leftarrow nextAgent(agent)$
       \Until{$episodeEnded(\boldsymbol{x})$}
       \State $example \leftarrow convertCostsToValues(example)$
       \State \textbf{return} $example$
@@ -219,38 +217,111 @@ Pseudocode for episode execution following the sections above is shown in \cref{
 
 \section{Neural Network}
 \subsection{Loss Functions and Pareto}
-do we use mse or not? how do we balance action and value loss if not symmetric? Alpha zero sets them equal, can we use the same principals here?
+do we use mean square error or cross entropy or not? how do we balance action and value loss if not symmetric? Alpha zero sets them equal, can we use the same principals here?
 
 \subsection{Architectures}
-Player vs Adversary Architectures? Combined? GPU, computing power and complexity
+Player vs Adversary Architectures? Combined? GPU, computing power and complexity. Just list the neural network structure (not finalised yet).
 
 \section{MCTS}
 
-\begin{algorithm}
+The general MCTS algorithm, outlined in \cref{sec:mctsintro}, was implemented for the inverted pendulum as in \cref{alg:mcts}.
+
+\subsection{Tree Nodes and Simulations}
+
+The state for the inverted pendulum is continuous ($\boldsymbol{x} \in \mathbb{R}^4$), as opposed to the discrete nature of board games. In order to be able to compare nodes, the states are multiplied by $10^{12}$ and converted to integers. Each MCTS simulation ends with a leaf node being expanded, therefore after S simulations from a node, S states will be visited. Over the whole episode, $S\times L$ distinct states will be visited in total. For an episode length of 200, the probability of revisiting a state again from a different trajectory is $(S \times L)10^{-12^4}$: impossibly small.
+
+Binning in this manner allows means that S is limited only in computing power. Having $S>50$ leads to computing times of days on the NVIDEA GeForce GTX 1050 GPU used for this project (S = 1600 for AlphaZero).
+
+\subsection{Action Selection}
+Action selection moving down the tree was modified to reflect the asymmetry of the state-value:
+
+{
+\newcommand{\bx}{\boldsymbol{x}}
+\begin{align}
+   u^*_{player} & = \underset{u \; in \; \mathcal{U}_{player}}{argmax} \Big{\{} Q(\bx, u) + c \cdot\boldsymbol{p}_\theta (\bx, u)\frac{\sqrt{\sum_b N(\bx, b)}}{1 + N(\bx, b)}\Big{\}} =  \underset{u \; in \; \mathcal{U}_{player}}{argmax} U_{player}(\bx, u) \\
+   u^*_{adv} & = \underset{u \; in \; \mathcal{U}_{adv}}{argmax} \Big{\{} -Q(\bx, u) + c \cdot\boldsymbol{p}_\theta (\bx, u)\frac{\sqrt{\sum_b N(\bx, b)}}{1 + N(\bx, b)}\Big{\}} = \underset{u \; in \; \mathcal{U}_{adv}}{argmax} U_{adv}(\bx, u)
+   \label{eqn:IPucb}
+\end{align}
+}
+
+Negating Q in $U_{adv}$ causes the adversary minimising the state-value whilst still maximising the upper confidence bound - ensuring exploration.
+
+\subsection{Terminal States and Suicide***}
+Section on why the player sacrifices itself if the value of doing that is better than lingering by the edge - find a better word than suicide.
+
+\begin{algorithm}[h]
+   \newcommand{\bx}{\boldsymbol{x}}
    \caption{MCTS}
    \label{alg:mcts}
    \begin{algorithmic}[1]
-      \Function{getActionProb}{$boldsymbol{x}, \boldsymbol{x}^{(2D)}, player$}
+      \Function{getActionProb}{$\bx_{root}, \bx^{(2D)}, agent$}
+      \For{i \textbf{in} nMCTSSims}
+      \Comment{Simulate nMCTSSims episodes from $\bx_{root}$}
+         \State $reset(\bx_{root})$
+         \State $MCTSSearch(\bx^{(2D)}, agent)$
+      \EndFor
+      \State $N(\bx_{root}, u) \leftarrow getCounts()$
+      \Comment{Count the times each edge, $(\bx_{root}, u)$, was visited.}
+      \State $N(\bx_{root}, u) \leftarrow N(\bx_{root}, u)^{\tau}$
+      \Comment{Control Sparsity with the temperature, $\tau$}
+      \State \textbf{return} $\pi \leftarrow norm(N(\bx_{root}, u))$
       \EndFunction
       \Statex
 
-      
-      \Function{Search}{}
+      \Function{MCTSSearch}{$\bx^{(2D)}, agent$}
+      \If{$\bx$ is terminal}
+         \State $\pi, v \leftarrow f_\theta(\bx^{(2D)})$
+         \State \textbf{return} $v$
+         \Comment{Use $v_{nnet}$ whether fallen or past the step limit}
+      \EndIf
+      \State
+      \If{$\bx \notin Tree$}
+      \Comment{Expand Leaf Node}
+         \State $\pi, v \leftarrow f_\theta(\bx^{(2D)})$
+         \State $N(\bx, \cdot) \leftarrow 0$
+         \State $P(\bx, \cdot) \leftarrow \pi$
+         \State \textbf{return} $v$
+      \EndIf
+      \State
+      \If{$agent=player$}
+      \Comment{Get best action using UCB}
+         \State $u^* \leftarrow \underset{u \; \in \; \mathcal{U}_{player}}{argmax}U_{player}(\bx, u)$
+      \Else
+         \State $u^* \leftarrow \underset{u \; \in \; \mathcal{U}_{adv}}{argmax}U_{adv}(\bx, u)$
+      \EndIf
+      \State $\boldsymbol{x}, c \leftarrow step(\boldsymbol{x}, u)$
+      \Comment{Take next MCTS simulated step}
+      \State $\boldsymbol{x}^{(2D)} \leftarrow getState2D(\boldsymbol{x}, \boldsymbol{x}^{(2D)})$
+      \State $agent \leftarrow nextAgent(agent)$
+      \State $v \leftarrow MCTSSearch(\bx^{(2D)}, agent)$
+      \Comment{Recursion to next node}
+      \State
+      \State $Q(\bx, u^*) \leftarrow \frac{N(\bx, u^*)Q(\bx, u^*) + v}{N(\bx, u^*)+1}$
+      \Comment{Backup Q-values up the tree}
+      \State $N(\bx, u^*) \leftarrow N(\bx, u^*)+1$
+      \State \textbf{return} $v$
       \EndFunction
    \end{algorithmic}
 \end{algorithm}
 
-
-outline + pseudocode
-\subsection{State and Player Representation}
-
-\subsection{Terminal States and Suicide***}
-
-\subsection{Modified UCB}
-
-
 \section{Player and Adversary Evaluation}
-\subsection{Elo Scoring}
+\newcommand{\fp}[1]{f_{\theta, \; #1}^{(player)}}
+\newcommand{\fa}[1]{f_{\theta, \; #1}^{(adv)}}
+
+For agents where one has a distinct advantage, determining how 'good' the policy is compared to other policies becomes difficult e.g. if the pendulum stays up for longer, is is difficult to determine whether the player has improved because it is controlling better, or the adversary is less effective, or both have improved but one improved more. Handicapping the adversary such that it is equal to the player is not practical due to the non-linear relationships between external forces, and gravity, on the dynamics. Furthermore, the inverted pendulum must stay up for at least some amount of time, otherwise the network won't have the training examples to learn from. Therefore handicapping the adversary with $F_2 = \alpha F_1$ and limiting the adversary to push every K steps were both used ($\alpha \sim 0.05$ and $K \sim 20$ initially).
+
+Over one policy iteration, there are 4 different policies: The two current player and adversary policies, $\fp{curr}$ and $\fa{curr}$, and the challenger policies,  $\fp{chal}$ and $\fa{chal}$. The improvement of the player can be determined by pitting the current player against the current adversary, and then the challenging player against the current adversary; and vice-versa for the adversary improvement\footnote{Note, if the ratings were correctly updated in the last policy iteration then $\mathbb{E}[\mathbb{E}[s_{curr}^{agent}] - \mu_{curr}^{agent}] = 0$}. This gives 4 equations of the form in \cref{equ:elo}:
+
+\begin{align}
+   \mathbb{E}[s^p_{curr}] &= \frac{1}{1+10^\wedge \big( \frac{\mu^a_{curr} - \mu^p_{curr}}{400} \big)} \hspace{1cm} &\mathbb{E}[s^a_{curr}] = \frac{1}{1+10^\wedge \big( \frac{\mu^p_{curr} - \mu^a_{curr}}{400} \big)}\\
+   \mathbb{E}[s^p_{chal}] &= \frac{1}{1+10^\wedge \big( \frac{\mu^a_{curr} - \mu^p_{chal}}{400} \big)} \hspace{1cm} &\mathbb{E}[s^a_{chal}] = \frac{1}{1+10^\wedge \big( \frac{\mu^p_{curr} - \mu^a_{chal}}{400} \big)}\\
+\end{align}
+
+where $\mathbb{E}[s^p_{curr}] = \mathbb{E}[s(\fp{curr})]$ denotes the score for the current player, and $\mu^p_{curr} = \mu(\fp{curr})$ is the rating of the current player. The expected scores can be estimated via monte-carlo. Rearranging gives the relation between successive agent ratings as:
+
+\begin{equation}
+   \mu^p_{chal} = \mu^p_{curr} + 400log_{10} \bigg( \frac{{E}[s^p_{chal}]}{1 - {E}[s^p_{chal}]} \cdot \frac{1 - {E}[s^p_{curr}]}{{E}[s^p_{curr}]}    \bigg)
+\end{equation}
 
 
 %\onlyinsubfile{\subfile{Bibliography.tex}}
