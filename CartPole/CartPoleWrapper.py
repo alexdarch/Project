@@ -58,10 +58,10 @@ class CartPoleWrapper(CartPoleEnv):
 
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
-        temp = self.masspole * sintheta * (self.length * theta_dot**2 - self.gravity * costheta)
-        xacc = (f_1 + f_2 * np.cos(2*theta) + temp) / (self.masscart + self.masspole * sintheta**2)
-        thetaacc = (2*f_2*costheta + self.masspole*self.gravity*sintheta - self.masspole*xacc*costheta)\
-            / self.polemass_length
+        temp = sintheta * self.polemass_length * theta_dot**2
+        xacc = (f_1 + f_2 * np.cos(2*theta) + temp - self.masspole*self.gravity*sintheta*costheta)\
+            / (self.masscart + self.masspole * sintheta**2)
+        thetaacc = (temp + f_1 + f_2 - self.total_mass*xacc)/(self.polemass_length * costheta)
 
         # euler integration
         x = x + self.tau * x_dot

@@ -3,14 +3,14 @@
 \chapter{Introduction}
 
 \section{Controlling Dynamical Systems}
-Dynamical systems have long been of great interest to engineers and scientists due to their ability to handily describe real world phenomena. They describe how a system changes through geometrical space with time and, in principle, their trajectories can be predicted solely from their initial state. In recent years this has become relatively easy, even for non-linear systems, by using numerical methods coupled with increases in computing power. However, often a precise solution is of less import than a prediction of the long term qualitative behaviour of the system. Much effort has been made to find methods to describe this long-term behaviour such as those made by Lyapunov in stability theory. 
+Dynamical systems have long been of great interest to engineers and scientists due to their ability to readily describe real world phenomena. They describe how a system changes through geometric space with time and, in principle, their trajectories can be predicted solely from their initial state. In recent years advances in computing power have allowed numerical methods to solve non-linear systems with relative ease. However, often a precise solution is of less import than a prediction of the long term qualitative behaviour of the system. Much effort has been made to find methods to describe this long-term behaviour such as those made by Lyapunov in stability theory \cite{4f2}. 
 
 A corollary of the importance of dynamical systems is that influencing their behaviour is particularly useful. Highly non-linear models are difficult to control optimally and robustly, and the few mathematical techniques developed to deal with these can only handle very small subcategories of problems \cite{4f2, 4f3}. The study of more general techniques to solve complex control problems has recently come to the forefront of the field with the advent of machine learning techniques such as reinforcement and deep learning. Many of these are not aimed specifically at control problems and are often designed to play games. This project looks at adapting one such algorithm - AlphaZero - from playing board games to solving general control problems such as the control of an aircraft in flight or the control of under-actuated robotics by starting with a simple inverted pendulum.
 
 \section{Control Theory}
-The first attempts at controlling dynamical systems came from classical control theory, which consisted of a series of 'cut-and-try' techniques based largely on adjusting the gains of PID controllers and lead/lag compensators until satisfactory closed loop dynamics were achieved \cite{History}.
+The first attempts at controlling dynamical systems came from classical control theory, which consisted of a series of ``cut-and-try'' techniques based largely on adjusting the gains of PID controllers and lead/lag compensators until satisfactory closed loop dynamics were achieved \cite{History}.
 
-It wasn't until the unification of the calculus of variations, classical control, random process theory and linear/non-linear programming by bellman in the 1950's \cite{History} that truly optimal control was discovered. Optimal control consists of finding a control law for a specified optimality criterion and can be thought of as a non-linear feedback law, $u(t) = -K(t)x(t)$ based on the initial state, $x(0)$. In discrete time, an optimal control law can be found via dynamic programming (DP). DP is a systematic procedure for transforming an optimisation over a sequence of h inputs into h minimisations over 1 input (but for all states).
+It wasn't until the unification of the calculus of variations, classical control, random process theory, and linear/non-linear programming by Bellman in the 1950s \cite{History} that truly optimal control was discovered. Optimal control consists of finding a control law for a specified optimality criterion and can be thought of as a non-linear feedback law, $u(t) = -K(t)x(t)$ based on the initial state, $x(0)$. In discrete time, an optimal control law can be found via \textit{dynamic programming} (DP). DP is a systematic procedure for transforming an optimisation over a sequence of h inputs into h minimisations over 1 input (but for all states). The dynamic programming equations are:
 
 \begin{align}
     \label{equ:detval} 
@@ -19,9 +19,11 @@ It wasn't until the unification of the calculus of variations, classical control
     u^{*}_k & = \underset{u_k}{argmin} \Big( c(x_k, u_k) + V(x_{k+1}, k+1) \Big)
 \end{align}
 
-The dynamic programming equations above, where $c(x_i, u_i)$ is the cost as a function of the state and input at time i, $J_h(x_h)$ is the terminal cost, and $V(x_k, k)$ is the value function.
+Where $c(x_i, u_i)$ is the cost as a function of the state and input at time i, $J_h(x_h)$ is the terminal cost, and $V(x_k, k)$ is the value function.
 
-This enables a backwards recursion to find a sequence of value functions. This can be solved for the linear case with quadratic costs analytically (LQR) or, if the system is non-linear, via gradient descent. However, over a finite horizon this is essentially open-loop control. Optimal control of this form has been used to control complex dynamical systems such as spaceflight and aileron folding on aircraft \cite{aircraftoptcont, aileronoptcont}. A closed loop extension to this is Model Predictive Control (MPC), which employs a receding horizon rather than a finite or infinite horizon. MPC can therefore easily deal with plant disturbances and uncertainties, constraints, indefinite horizons and can also be extended to get a control law for non-linear systems. MPC has recently been shown to work in trajectory control for interplanetary rovers \cite{rovermpc}. Optimal control is limited in requiring sophisticated models of the environment/plant and generally struggle with highly non-linear models - state of the art is currently linearisation about the predicted trajectory. Furthermore, it is only feasible to 'grid' up to 5/6 dimensions in discrete cases \cite{4f3}. 
+This enables a backwards recursion to find a sequence of value functions. This can be solved for the linear case with quadratic costs analytically (known as the linear quadratic regulator, LQR) or, if the system is non-linear, via gradient descent. However, over a finite horizon this is essentially open-loop control. Optimal control of this form has been used to control complex dynamical systems such as spaceflight and aileron folding on aircraft \cite{aircraftoptcont, aileronoptcont}. A closed loop extension to this is Model Predictive Control (MPC), which employs a receding horizon rather than a finite or infinite horizon. MPC can therefore easily deal with plant disturbances and uncertainties, constraints, indefinite horizons and can also be extended to get a control law for non-linear systems. MPC has recently been shown to work in trajectory control for interplanetary rovers \cite{rovermpc}. Optimal control is limited in that it requires sophisticated models of the environment/plant, and it generally struggles with highly non-linear models (state of the art is currently linearisation about the predicted trajectory). Furthermore, it is only feasible to ``grid'' up to 5/6 dimensions in discrete cases \cite{4f3}.
+
+The inverted pendulum is a seminal problem in control theory. It is inherently unstable, under-actuated, dynamically simple, yet highly non-linear making it an ideal teaching aid. For the inverted pendulum system, a standard method of controlling the pole is to use swing-up control followed by LQR. Swing-up control aims to find a homoclinic trajectory through energy shaping to drive the pendulum to the unstable equilibrium. The region near the equilibrium can be approximated as linear and therefore LQR can optimally stabilise the pendulum near it. This is a particularly good method for the inverted pendulum, but it is difficult to generalise to more difficult systems \cite{invpen}.
 
 \section{Reinforcement Learning}
 Two further generalisations to dynamical systems and optimal control as defined in \cref{equ:detval} are stochastic dynamics and indefinite horizons (i.e. episodic tasks). This discrete time stochastic control process is known as a Markov Decision Process (MPD). In MDPs the cost function is often written as a reward function and, due to the indefinite nature of the process, the value function for the next step is discounted (where $\lambda \approx 0.9$ typically):
@@ -33,19 +35,18 @@ Two further generalisations to dynamical systems and optimal control as defined 
     u^{*}_k & = \underset{u_k}{argmax}\; \mathbb{E} \Big[ r(x_k, u_k) + \lambda V(x_{k+1}) \Big]
 \end{align}
 
-Reinforcement learning (RL) aims to learn the optimal policy, $\pi^{*}(x_k)$ ($=u^{*}(x_k)$ in control) of an MDP. This differs from optimal control in its inherent stochastic nature and therefore can lead to intractable search spaces. A solution to this is to learn form sample trajectories. Algorithms such as Q-Learning, SARSA and DYNA have recently had great success in control applications, for example, their use in controlling mobile robots \cite{Qlearning, RLoverview}. Furthermore, the advent of neural networks has led to the extension of these to functional approximations from tabula-rasa methods, making the control highly non-linear dynamical systems possible. Notably, Deepminds' recent success with training a robot to gently manipulate objects \cite{Robothand}, would not be possible to reproduce using classical or modern control techniques due to dimensional problems.
+Reinforcement learning (RL) aims to learn the optimal policy, $\pi^{*}(x_k)$ ($=u^{*}(x_k)$ in control) of an MDP. This differs from optimal control in its inherent stochastic nature and therefore can lead to intractable search spaces. A solution to this is to learn form sample trajectories. Algorithms such as Q-Learning, SARSA and DYNA have recently had great success in control applications such as, their use in controlling mobile robots \cite{Qlearning, RLoverview}. Furthermore, the advent of neural networks has led to the extension of these to functional approximations from tabula-rasa methods, making the control highly non-linear dynamical systems possible. Notably, Deepmind's recent success with training a robot to gently manipulate objects \cite{Robothand}, would not be possible to reproduce using classical or modern control techniques due to dimensional problems.
 
 \section{AlphaZero}
 AlphaGo Zero is a revolutionary Reinforcement Learning algorithm that achieved superhuman performance in the game of go, winning 100–0 against the previously published, champion-defeating AlphaGo. It's successor, AlphaZero, is a generalised version that can achieve superhuman performance in many games. There are two key sub-algorithms that form the basis of their success: Monte-Carlo tree search (MCTS) for policy improvement, and a deep CNN for the neural policy and value network. Policy iteration is then implemented through self-play. AlphaGo Zero and AlphaZero differ only in the latter's use of a single neural network that is updated iteratively, rather than evaluated against the previous one, and by not taking advantage of the symmetries of the games.
 
-A key feature of AlphaZero is that it only requires the ability to simulate the environment. It does not need to be told how to win, nor does it need an exact model of the system dynamics, $p(s_{t+1} |s_t, a_t)$, as this can be learnt through self-play. Furthermore, the algorithm often 'discovers' novel solutions to problems, as shown by 'move 37' in a game of Go against the reigning world champion, Lee Sedol. This makes it particularly suitable for learning to control complex dynamical systems where approximate simulations can be made.
+A key feature of AlphaZero is that it only requires the ability to simulate the environment. It does not need to be told how to win, nor does it need an exact model of the system dynamics, $p(s_{t+1} |s_t, a_t)$, as this can be learnt through self-play. Furthermore, the algorithm often ``discovers'' novel solutions to problems, as shown by \textit{move 37} in a game of Go against the reigning world champion, Lee Sedol. This makes it particularly suitable for learning to control complex dynamical systems where approximate simulations can be made.
 
 \subsection{Self Play and The Neural Network}
-
 \Cref{fig:selfplay}a
-shows how self-play is performed in AlphaZero. An episode/game, $\{s_1, ..., s_T\}$ is played and for each state, $s_t$, a Monte-Carlo Tree Search is performed, guided by the current policy $f_\theta$. The MCTS outputs an improved action-\textit{p.m.f}, $\boldsymbol{\pi}_t = [p(a_1|s_t), p(a_2|s_t), ..., p(a_N|s_t)]$. The next move is then selected by sampling from $\boldsymbol{\pi}_t$. The final player then gets scored (e.g in chess $z \in \{-1, 0, 1\} $ for a loss, draw or win respectively). The game score, z, is then appended to each state-action pair depending on who the current player was on that move to give training examples of the form $(s_t, \boldsymbol{\pi}_t, (-1)^{\mathbb{I}(winner)}z)$. 
+shows how self-play is performed in AlphaZero. A game, known from now on as an episode, $\{s_1, ..., s_T\}$ is played and for each state, $s_t$, a Monte-Carlo Tree Search is performed, guided by the current policy $f_\theta$. The MCTS outputs an improved action probability mass function (\textit{p.m.f}), $\boldsymbol{\pi}_t = [p(a_1|s_t), p(a_2|s_t), ..., p(a_N|s_t)]$. The next move is then selected by sampling from $\boldsymbol{\pi}_t$. The agent that plays the final move then gets scored (e.g in chess $z \in \{-1, 0, 1\} $ for a loss, draw or win respectively). The game score, z, is then appended to each state-action pair depending on who the current player was on that move to give training examples of the form $(s_t, \boldsymbol{\pi}_t, (-1)^{\mathbb{I}(winner)}z)$. 
 
-The neural network, $f_\theta(s)$ takes a board state, s, and outputs a \textit{p.m.f} over all actions and the expected outcome, $(\boldsymbol{p}_\theta, v)$ (\cref{fig:selfplay}). The networks are initialised with $\theta \sim \mathcal{N}(0, \epsilon)$, $\epsilon$ small. The neural network is trained to more closely match the MCTS-informed action-\textit{p.m.f.}s, $\boldsymbol{\pi}_t$, and the expected outcome (state-value), $v_t$ to z.
+The neural network, $f_\theta(s)$ takes a board state, s, and outputs a \textit{p.m.f} over all actions and the expected outcome, $(\boldsymbol{p}_\theta, v)$ (\cref{fig:selfplay}). The networks are initialised with $\theta \sim \mathcal{N}(0, \epsilon)$, where $\epsilon$ is small. The neural network is trained to more closely match the MCTS-informed action-\textit{p.m.f.}s, $\boldsymbol{\pi}_t$, and the expected outcome (state-value), $v_t$ to z.
 
 \begin{wrapfigure}{l}{0.6\textwidth}
    \centering
@@ -63,13 +64,20 @@ The loss function for the neural network is given by:
 \end{equation}
 
 For chess, the input state consists of an image stack of 119 8x8 planes representing the board state at times $ \{ t, t-1, ..., t-8 \} $, and planes representing repetitions, colours and castling etc. The output action \textit{p.m.f} is a 8x8x73=4672 vector representing every possible move from each piece, illegal moves are then masked. The output value, $v \in (-1, 1)$. 
-The network itself consists of an input convolutional block and two separate 'heads'. The policy head has softmax activation function, preceded by series of ReLU linear layers and batch normalisation layers. The value head also has this but with a tanh output activation. The input convolutional block consists a single convolutional layer followed by 19-39 residual blocks.
+The network itself consists of an input convolutional block and two separate ``heads''. The policy head has \textit{softmax} activation function, preceded by series of \textit{ReLU} linear layers and batch normalisation layers. The value head also has this but with a \textit{tanh} output activation. The input convolutional block consists a single convolutional layer followed by 19-39 residual blocks.
 
 \subsection{Monte Carlo Tree Search}
 \label{sec:mctsintro}
+\Cref{fig:MCTS} depicts the steps involved in a monte-carlo tree search (MCTS) iteration, and are described below.
+
+\begin{figure}[H]
+   \centering
+   \includegraphics[width=\textwidth]{MCTS.jpg}
+   \caption{\label{fig:MCTS} A schematic outlining the steps involved in a monte-carlo tree search. Taken from \cite{AlphaGoZero}.}
+\end{figure}
 
 \Cref{fig:MCTS}a:
-A MCTS is performed at each step of an episode. The state at which the tree search starts then becomes the root state, $s_{root}$. From the root state, the tree search can move to an edge (s, a) by selecting an action, a. Before selection a prior $P(s, a) = (1-\epsilon)\boldsymbol{p}_{\theta, root} + \epsilon \boldsymbol{\eta}$ where $\boldsymbol{\eta} \sim Dir(0.3)$ and $\epsilon = 0.25$ is added to ensure exploration. Each edge stores a prior action-\textit{p.m.f.} and an initial value $\boldsymbol{p}_\theta (s_{t-1}, a_{t-1}), v(s_{t-1}, a_{t-1}) =f_\theta(s_t)$ \footnote{note that action $a_{t-1}$ from state $s_{t-1}$ yields state $s_t$, if the system is deterministic. Therefore, $(s_{t-1}, a_{t-1}) = (s_t)$ in this setting.}; a visit count, N(s, a); and an action-value, Q(s, a). Actions are selected by maximising an the action-value plus an upper confidence bound, which encourages exploration. The constant c ($\sim 1$) can be increased to encourage exploration.
+A MCTS is performed at each step of an episode. The state at which the tree search starts then becomes the root state, $s_{root}$. From the root state, the tree search can move to an edge (s, a) by selecting an action, a. To ensure exploration, before selection a prior, $P(s, a) = (1-\epsilon)\boldsymbol{p}_{\theta, root} + \epsilon \boldsymbol{\eta}$, where $\boldsymbol{\eta} \sim Dir(0.3)$ and $\epsilon = 0.25$ is added. Each edge stores a prior action- textit{p.m.f.} and an initial value $\boldsymbol{p}_\theta (s_{t-1}, a_{t-1}), v(s_{t-1}, a_{t-1}) =f_\theta(s_t)$ \footnote{note that action $a_{t-1}$ from state $s_{t-1}$ yields state $s_t$, if the system is deterministic. Therefore, $(s_{t-1}, a_{t-1}) = (s_t)$ in this setting.}; a visit count, N(s, a); and an action-value, Q(s, a). Actions are selected by maximising an the action-value plus an upper confidence bound, which encourages exploration. The constant c ($\sim 1$) can be increased to encourage exploration.
 
 \begin{equation}
    a_{selected} = \underset{\forall a}{argmax} \Big{\{}Q(s, a) + c \cdot\boldsymbol{p}_\theta (s, a)\frac{\sqrt{\sum_b N(s, b)}}{1 + N(s, a)}\Big{\}}
@@ -90,21 +98,15 @@ The action-values, Q, are calculated as the mean of state-values in the subtree 
 \Cref{fig:MCTS}d:
 After a set number of simulations (1600), the MCTS-improved action \textit{p.m.f}s, $\boldsymbol{\pi} = p(\boldsymbol{a} | s_{root}) \propto N^{1/\tau}$, are returned where N is the visit count of each move from the root state and $\tau$ controls the sparseness of the probability mass function $(\{\tau = 0\} \rightarrow argmax\{N(s, a)\})$. For self-play, $\tau = 1$ for the first 30 moves and $\tau \rightarrow 0$ thereafter. For evaluation $\tau \rightarrow 0 \; \forall t$. If $\tau \rightarrow 0$ then $\boldsymbol{\pi}$ becomes one-hot and the loss function of the neural network makes sense as a prediction of a categorical distribution.
 
-\begin{figure}[H]
-   \centering
-   \includegraphics[width=\textwidth]{MCTS.jpg}
-   \caption{\label{fig:MCTS} A schematic outlining the steps involved in a monte-carlo tree search. Taken from \cite{AlphaGoZero}.}
-\end{figure}
-
 \subsection{Policy Iteration}
 
-AlphaZero uses a single neural network that continually updates, whether it is better or worse than the previous network. Whereas AlphaGo Zero games are generated using the best player from all previous iterations and then only replaced if the new player wins $> 50\%$ of evaluation games played.
+AlphaZero uses a single neural network that continually updates, irrespective of whether it is better or worse than the previous network. Whereas AlphaGo Zero games are generated using the best player from all previous iterations and then only replaced if the new player wins $> 50\%$ of evaluation games played.
 
-Evaluation is done by playing 400+ greedy $(\tau \rightarrow 0)$ games of the current best neural network against the challenging neural network. The networks are then ranked based on an elo scoring system.
+Evaluation is done by playing 400 or more greedy $(\tau \rightarrow 0)$ games of the current best neural network against the challenging neural network. The networks are then ranked based on an elo scoring system.
 
 \section{Ranking and Elo Rating}
 
-The Elo rating system is a method of finding players' relative skills in two player games such as chess \cite{elo}. The Elo system is based upon every player having an average skill level $\mu_i$, and variation distributed normally about their mean , i.e. $skill \sim \mathcal{N}(skill | \mu_i, \sigma)$. Therefore, the probability of one player beating the other is given by the c.d.f. of the difference of their gaussians. This can be approximated as a logistic function, and written as:
+The Elo rating system is a method of finding players' relative skills in two player games such as chess \cite{elo}. The Elo system is based upon every player having an average skill level $\mu_i$, and variation distributed normally about their mean , i.e. $skill \sim \mathcal{N}(skill | \mu_i, \sigma)$. Therefore, the probability of one player beating the other is given by the cumulative density function (\textit{c.d.f.}) of the difference of their Gaussians. This can be approximated as a logistic function, and written as:
 
 \begin{equation}
    \label{equ:elo}
@@ -119,13 +121,13 @@ Where 400 is a scaling factor such that the means can be used as the player rati
 
 where 32 is again an arbitrary constant. New players are given an initial ranking of 1000.
 
-\section{Summary of Objectives}
+\section{Summary of Potential Benefits}
 
-The application of AlphaZero to dynamical systems a number of potential benefits above traditional optimal control or reinforcement learning:
+The application of AlphaZero to dynamical systems a number of potential benefits above traditional optimal control or reinforcement learning. These include:
 \begin{description}
-    \item[Robust Disturbance Handling] - The Adversary in AlphaZero is effectively worst case scenario disturbance modelling. By incorporating this into the training process, the controller should be able to cope with situations well outside normal operating conditions.
-    \item[Non-Linear Systems] - Neural networks are universal function approximators and, hence with the correct architecture, therefore should be able to model any system.
-    \item[General Framework] - AlphaZero is a general algorithm that should be able to be applied to many different systems with minimal changes and still model the control well. 
+    \item[Robust Disturbance Handling.] The Adversary in AlphaZero is effectively worst case scenario disturbance modelling. By incorporating this into the training process, the controller should be able to cope with situations well outside normal operating conditions.
+    \item[Non-Linear Systems.] Neural networks are universal function approximators and, hence with the correct architecture, therefore should be able to model any system.
+    \item[General Framework.] AlphaZero is a general algorithm that should be able to be applied to many different systems with minimal changes and still model the control well. 
 \end{description}
 
 This project investigates these.
