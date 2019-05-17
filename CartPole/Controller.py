@@ -67,7 +67,7 @@ class Controller:
             policy_predictions.append([policy_action, policy_value])
 
             # ---------- GET PROBABILITIES FOR EACH ACTION --------------
-            temp = 1  # int(self.env.steps < self.args.tempThreshold)  # act greedily if after 15th step
+            temp = int(self.env.steps < self.args.tempThreshold)  # act greedily if after 15th step
             pi = self.mcts.get_action_prob(state_2d, observation, player, temp=temp)  # MCTS improved action-prob
             example.append([state_2d, pi, player])
 
@@ -122,7 +122,7 @@ class Controller:
                                           eps/self.args.trainEps,
                                           time.time() - start)
                 if self.args.mctsTree:
-                    self.mcts.show_tree(values=True)
+                    self.mcts.show_tree()
                     return  # prevents us from overwriting the best model
                 np.savez_compressed(r'Data\TrainingData\TrainingExamples'+str(self.policy_iters)+'.npz', *[step[0] for step in policy_examples])  # pickle the state_2d's in a long dict
                 self.save_to_csv('TrainingExamples', policy_examples_to_csv)
@@ -150,11 +150,10 @@ class Controller:
             eval = Evaluate(lambda s2d, root, player: np.argmax(current_mcts.get_action_prob(s2d, root, player, temp=0)),
                           lambda s2d, root, player: np.argmax(challenger_mcts.get_action_prob(s2d, root, player, temp=0)),
                             self.env, self.curr_player_elo, self.curr_adversary_elo)
-            self.curr_player_elo, self.curr_adversary_elo = eval.evaluate_policies(self.args.testEps)
-            print(self.curr_player_elo, self.curr_adversary_elo)
+            self.curr_player_elo, self.curr_adversary_elo = eval.evaluate_policies(self.args.testEps, self.args.renderTestEps)
 
             # ------------------------- COMPARE POLICIES AND UPDATE ---------------------------------
-            update = True
+            update = True  #  always update
             if update:
                 self.nnet = deepcopy(self.challenger_nnet)
                 # if we are updating then the challenger nnet is the best nnet. Also checkpoint

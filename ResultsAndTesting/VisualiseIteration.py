@@ -12,7 +12,7 @@ colour_list = list(colors.keys())
 
 class VisualiseIteration:
     """
-    Uses objects of IterationData, which contians methods to easily access data, summarised below:
+    Uses objects of IterationData, which contains methods to easily access data, summarised below:
 
     Attributes:
         self.episodes = number of episodes in an iteration

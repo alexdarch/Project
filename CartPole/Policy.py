@@ -152,8 +152,8 @@ class StatePlayerNetworkArchitecture(torch.nn.Module):
         v = self.value_layer(s)  # batch_size x 1
         return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
 
-
 class StateAdversaryNetworkArchitecture(torch.nn.Module):
+
     def __init__(self, policy_env):
         super().__init__()
         print("State Network Architecture")
@@ -195,17 +195,17 @@ class NeuralNet:
         architectures = [self.player_architecture, self.adversary_architecture]
         optimizers = [optim.Adam(self.player_architecture.parameters(), lr=pargs.lr),
                       optim.Adam(self.adversary_architecture.parameters(), lr=pargs.lr)]
-        player_losses = [[], [], [], [], [], []]
-        for player in range(len(architectures)):
-            player_examples = examples[examples[:, 2] == player, :]
-            architectures[player].train()    # set module in training mode
+        agent_losses = [[], [], [], [], [], []]
+        for agent in range(len(architectures)):
+            agent_examples = examples[examples[:, 2] == agent, :]
+            architectures[agent].train()    # set module in training mode
             batch_idx, start = 0, time.time()
-            while batch_idx < int(len(player_examples)/pargs.batch_size):
+            while batch_idx < int(len(agent_examples)/pargs.batch_size):
 
                 # --------------- GET BATCHES -------------------
                 # Stochastic gradient descent -> pick a random sample
-                sample_ids = np.random.randint(len(player_examples), size=pargs.batch_size)
-                states_2d, pis, players, vs = list(zip(*[player_examples[i] for i in sample_ids]))
+                sample_ids = np.random.randint(len(agent_examples), size=pargs.batch_size)
+                states_2d, pis, agents, vs = list(zip(*[agent_examples[i] for i in sample_ids]))
 
                 # convert to torch tensors. Players is irrelevent since each nnet is its own player
                 states_2d = torch.FloatTensor(np.array(states_2d).astype(np.float64))
@@ -218,7 +218,7 @@ class NeuralNet:
                     target_pis = target_pis.contiguous().cuda()
                     target_vs = target_vs.contiguous().cuda()
 
-                out_pis, out_vs = architectures[player](states_2d)
+                out_pis, out_vs = architectures[agent](states_2d)
                 # -------------- COMPUTE LOSSES -----------------
                 pi_loss = self.loss_pi(target_pis, out_pis)*pargs.pareto
                 v_loss = self.loss_v(target_vs, out_vs)
@@ -226,101 +226,30 @@ class NeuralNet:
 
                 # ---------- COMPUTE GRADS AND BACK-PROP ------------
                 tot_loss.backward()
-                optimizers[player].step()
-                optimizers[player].zero_grad()
+                optimizers[agent].step()
+                optimizers[agent].zero_grad()
 
                 # store losses for writing to file
                 if pargs.cuda:
                     pi_loss = pi_loss.cpu()
                     v_loss = v_loss.cpu()
                     # tot_loss = tot_loss.cpu()
-                player_losses[player*2 + 0].append(pi_loss.detach().numpy().tolist())
-                player_losses[player*2 + 1].append(v_loss.detach().numpy().tolist())
-                # player_losses[player*3 + 2].append(tot_loss.detach().numpy().tolist())
+                agent_losses[agent*2 + 0].append(pi_loss.detach().numpy().tolist())
+                agent_losses[agent*2 + 1].append(v_loss.detach().numpy().tolist())
+                # agent_losses[agent*3 + 2].append(tot_loss.detach().numpy().tolist())
 
                 # ------------ TRACK PROGRESS ----------------
                 # Get array of predicted actions and compare with target actions to compute accuracy
                 batch_idx += 1
                 tag = "TRAINING, EPOCH " + str(1) + "/" + str(pargs.epochs) + ". PROGRESS OF " + str(
-                        int(len(player_examples) / pargs.batch_size)) + " BATCHES"
-                Utils.update_progress(tag, batch_idx / int(len(player_examples) / pargs.batch_size), time.time() - start)
+                        int(len(agent_examples) / pargs.batch_size)) + " BATCHES"
+                Utils.update_progress(tag, batch_idx / int(len(agent_examples) / pargs.batch_size), time.time() - start)
 
         # record to CSV file
         # losses = list(zip(a_losses, a_adv_losses, v_losses, tot_losses))
         with open(r'Data\TrainingData\NNetLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
-            writer.writerows(player_losses)
-        NeuralNet.trains += 1
-
-
-    def train_policy1(self, examples):
-        """
-        This function trains the neural network with examples obtained from
-        self-play.
-        Input:
-            examples: a list of training examples, where each example is of form
-                      (board, pi, v). pi is the MCTS informed policy vector for
-                      the given board, and v is its value. The examples has
-                      board in its canonical form.
-        """
-        optimizer = optim.Adam(self.architecture.parameters(), lr=pargs.lr)
-        a_losses, a_adv_losses, v_losses, tot_losses = [], [], [], []
-
-        for epoch in range(pargs.epochs):
-            self.architecture.train()    # set module in training mode
-            batch_idx, start = 0, time.time()
-            while batch_idx < int(len(examples)/pargs.batch_size):
-
-                # --------------- GET BATCHES -------------------
-                # Stochastic gradient descent -> pick a random sample
-                sample_ids = np.random.randint(len(examples), size=pargs.batch_size)
-                states_2d, pis, adv_pis, vs = list(zip(*[examples[i] for i in sample_ids]))
-                # convert to torch tensors
-                states_2d = torch.FloatTensor(np.array(states_2d).astype(np.float64))
-                target_pis = torch.FloatTensor(np.array(pis))
-                target_adv_pis = torch.FloatTensor(np.array(adv_pis))
-                target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
-
-                # -------------- FEED FORWARD -------------------
-                if pargs.cuda:
-                    target_pis, target_adv_pis = target_pis.contiguous().cuda(), target_adv_pis.contiguous().cuda()
-                    states_2d, target_vs = states_2d.contiguous().cuda(), target_vs.contiguous().cuda()
-
-                out_pi, out_adv_pi, out_v = self.architecture(states_2d)
-                # -------------- COMPUTE LOSSES -----------------
-                a_loss = self.loss_pi(target_pis, out_pi) * pargs.pareto
-                a_adv_loss = self.loss_pi(target_adv_pis, out_adv_pi) * pargs.pareto # should need the same pareto as a_loss?
-                v_loss = self.loss_v(target_vs, out_v)
-                total_loss = a_loss + a_adv_loss + v_loss
-
-                # ---------- COMPUTE GRADS AND BACK-PROP ------------
-                total_loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-
-                # store losses for writing to file
-                if pargs.cuda:
-                    a_loss = a_loss.cpu()
-                    a_adv_loss = a_adv_loss.cpu()
-                    v_loss = v_loss.cpu()
-                    total_loss = total_loss.cpu()
-                a_losses.append(a_loss.detach().numpy().tolist())  # if extend: 'float' object is not iterable
-                a_adv_losses.append(a_adv_loss.detach().numpy().tolist())
-                v_losses.append(v_loss.detach().numpy().tolist())
-                tot_losses.append(total_loss.detach().numpy().tolist())
-
-                # ------------ TRACK PROGRESS ----------------
-                # Get array of predicted actions and compare with target actions to compute accuracy
-                batch_idx += 1
-                tag = "TRAINING, EPOCH " + str(epoch + 1) + "/" + str(pargs.epochs) + ". PROGRESS OF " + str(
-                        int(len(examples) / pargs.batch_size)) + " BATCHES"
-                Utils.update_progress(tag, batch_idx / int(len(examples) / pargs.batch_size), time.time() - start)
-
-        # record to CSV file
-        losses = list(zip(a_losses, a_adv_losses, v_losses, tot_losses))
-        with open(r'Data\NNetLosses'+str(NeuralNet.trains)+'.csv', 'w+', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerows(losses)
+            writer.writerows(agent_losses)
         NeuralNet.trains += 1
 
     def predict(self, state_2d, player):
@@ -351,8 +280,8 @@ class NeuralNet:
 
     def loss_pi(self, targets, outputs):
         # the outputs are ln(p) already from log_softmax
-        # return -torch.sum(targets*outputs)/targets.size()[0]
-        return torch.sum((targets.view(-1) - outputs.view(-1)) ** 2) / (targets.size()[0]*self.action_size)
+        return -torch.sum(targets*outputs)/targets.size()[0]
+        # return torch.sum((targets.view(-1) - outputs.view(-1)) ** 2) / (targets.size()[0]*self.action_size)
 
     def loss_v(self, targets, outputs):
         return torch.sum((targets-outputs.view(-1))**2)/targets.size()[0]
@@ -372,9 +301,6 @@ class NeuralNet:
         }, adversary_path)
 
     def load_net_architecture(self, folder='NetCheckpoints', filename='checkpoint.pth.tar'):
-        value_path = os.path.join(folder, "value"+filename)
-        if not os.path.exists(value_path):
-            raise("No model in path {}".format(value_path))
         map_location = None if pargs.cuda else 'cpu'
 
         player_path = os.path.join(folder, "player"+filename)

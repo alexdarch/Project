@@ -164,6 +164,16 @@ It is obvious from this that as $\sigma_v^2 \rightarrow 0, \; \sigma_{n+1}^2 \ri
 
 For the multivariate case, it can similarly be shown (by Gelfand's Theorem, $\rho(M_1 ... M_n) \leq \rho(M_1)...\rho(M_n)$) that $\rho\left(\bar{\Sigma}_{n+1}C^T (\sigma_v^2 I + C \bar{\Sigma}_{n+1} C^T)^{-1} C)\right) < 1$, therefore a sufficient condition for the decay of the covariance is $\rho(A \Sigma_n A^T) \leq \rho(\Sigma_n) \implies \rho(A A^T) \leq 1$. For the linearised dynamics derived in \cref{equ:linearisedA} the eigenvalues, $\lambda$ are given by $\lambda^2(1-\lambda)^2 = 0 \implies \rho(AA^T) \leq 1$. Therefore, the covariance decays to zero in the linearised multivariate case and the 2D state becomes a lossless estimate of the state.
 
+The rate of decay for the univariate case can be determined with a first order approximation about $\sigma_v^2 = 0$:
+
+\begin{align}
+    \sigma_{n+1}^2(\sigma_v^2) &= A^2\sigma_n^2(1 - \frac{C^2 A^2\sigma_n^2}{\sigma_v^2 + C^2 A^2 \sigma_n^2}) \\
+    &\approx \sigma_{n+1}^2(0) + \delta \sigma_v^2 \frac{\partial \sigma_{n+1}^2(\sigma_v^2)}{\partial \sigma_v^2}|_{\sigma_v^2 = 0} \\
+    &= \frac{\delta \sigma_v^2}{(AC\sigma_n)^2}
+\end{align}
+
+As shown above, the mean square error decays with the square of the bin-size. Similarly, linearising about $\sigma_n^2 \approx 0$ gives $\sigma_{n+1}^2 = A^2$ for the linear case, which is constant.... Need to go to second order...
+
 } % end of bx, bu definititions
 \onlyinsubfile{\subfile{Bibliography.tex}}
 \end{document}

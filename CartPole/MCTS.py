@@ -100,8 +100,7 @@ class MCTS:
         best_act = None  # null action
         for a in range(self.env.get_action_size()):
             if (s, a) in self.Qsa:
-                q = self.Qsa[(s, a)] if player == 0 else -1-self.Qsa[(s, a)]
-                # q = self.Qsa[(s, a)]
+                q = self.Qsa[(s, a)] if player == 0 else -self.Qsa[(s, a)]
                 u = q + self.args.cpuct * self.Ps[s][a]*np.sqrt(self.Ns[s])/(1+self.Nsa[(s, a)])
             else:
                 u = self.args.cpuct * self.Ps[s][a]*np.sqrt(self.Ns[s] + EPS)
@@ -214,15 +213,20 @@ class MCTS:
             node.add_face(loss_face, column=0, position="branch-top")
 
             # -------- ADD ANNOTATION FOR ACTION VALUE WRT PLAYER, Q --------
+            #print("s={}, a={}, player={}".format(s, a, player))
             if (s, a) in self.Qsa:
-                q = self.Qsa[(s, a)] if player == 0 else -1-self.Qsa[(s, a)]
-                ucb = self.args.cpuct * self.Ps[node.name][a]*np.sqrt(self.Ns[s])/(1+self.Nsa[(s, a)])
+
+                #print(self.Ns[s])
+                #print(self.Nsa[(s, a)])
+                #print(self.Ps[s][a])
+                q = self.Qsa[(s, a)] if player == 0 else -self.Qsa[(s, a)]
+                ucb = self.args.cpuct * self.Ps[s][a]*np.sqrt(self.Ns[s])/(1+self.Nsa[(s, a)])
                 u = self.Usa[(s, a)]
             else:
                 q = 0
                 ucb = self.args.cpuct * self.Ps[node.name][a]*np.sqrt(self.Ns[s] + EPS)
                 u = ucb
-            q_formula = '(Qs)' if player == 0 else '(-1-Qs)'
+            q_formula = '(Qs)' if player == 0 else '(-Qs)'
             QA_face = TextFace("u = {:.3f}{} + {:.3f}(ucb) = {:.3f}".format(q, q_formula, ucb, u))
 
             c_value = cm.viridis(255+int((q+ucb)*255))  # plasma goes from 0-255
