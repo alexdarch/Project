@@ -1,5 +1,4 @@
 from MCTS import MCTS
-from Evaluate import Evaluate
 import numpy as np
 from collections import deque
 from utils import *
@@ -32,8 +31,6 @@ class Controller:
 
         # -------- POLICY STATS ----------
         self.policy_iters = 0
-        self.curr_player_elo = 1000
-        self.curr_adv_elo = 1000
 
         # ------- CONSTS AFFECTING THE VALUE FUNCTION ----------
         self.max_steps_beyond_done = self.env.max_steps_beyond_done
@@ -144,29 +141,15 @@ class Controller:
             self.challenger_nnet.load_net_architecture(folder=self.args.checkpoint_folder, filename='temp.pth.tar')
             self.challenger_nnet.train_policy(examples=examples_for_training)
 
-            challenger_mcts = MCTS(self.env, self.challenger_nnet, self.args)
-            current_mcts = MCTS(self.env, self.nnet, self.args)
 
-            eval = Evaluate(lambda s2d, root, agent: np.argmax(current_mcts.get_action_prob(s2d, root, agent, temp=0)),
-                          lambda s2d, root, agent: np.argmax(challenger_mcts.get_action_prob(s2d, root, agent, temp=0)),
-                            self.env, self.args, self.curr_player_elo, self.curr_adv_elo)
-            chal_player_elo, chal_adv_elo = eval.evaluate_policies()
+            # ---------- UPDATE THE NEURAL NETWORKS AND CHECKPOINT --------------
+            self.nnet = deepcopy(self.challenger_nnet)
+            # if we are updating then the challenger nnet is the best nnet. Also checkpoint
+            self.nnet.save_net_architecture(folder=self.args.checkpoint_folder,
+                                            filename='checkpoint_' + str(self.policy_iters) + '.pth.tar')
+            self.nnet.save_net_architecture(folder=self.args.checkpoint_folder,
+                                            filename='best.pth.tar')
 
-            # ------------------------- COMPARE POLICIES AND UPDATE ---------------------------------
-            update = True  # always update
-            if update:
-                self.curr_player_elo, self.curr_adv_elo = chal_player_elo, chal_adv_elo
-                self.nnet = deepcopy(self.challenger_nnet)
-                # if we are updating then the challenger nnet is the best nnet. Also checkpoint
-                self.nnet.save_net_architecture(folder=self.args.checkpoint_folder,
-                                                filename='checkpoint_' + str(self.policy_iters) + '.pth.tar')
-                self.nnet.save_net_architecture(folder=self.args.checkpoint_folder,
-                                                filename='best.pth.tar')
-            else:
-                # if we didnt update then just reload the nnet we saved before training (though this should do nothing)
-                self.challenger_nnet.load_net_architecture(folder=self.args.checkpoint_folder,
-                                                filename='temp.pth.tar')
-                # note, if there are two PI's in a row and no update then these aren't saved - only previous best ones
             self.policy_iters += 1
 
     def save_to_csv(self, file_name, data):

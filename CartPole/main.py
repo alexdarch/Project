@@ -7,7 +7,7 @@ from CartPoleWrapper import CartPoleWrapper
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
     'policyIters': 8,  # 8
-    'adversary': 0,  # Enumerate: 0:None, 1:Adversary, 2:EveryStepRandom, 3:LargeRandom
+    'adversary': 0,  # Enumerate: 0:Adversary, 1:None, 2:EveryStepRandom, 3:LargeRandom
     'trainEps': 1,  # 40,
     'testEps': 10,   # 10,
     'numMCTSSims': 15,  # 15/20,
@@ -27,7 +27,7 @@ args = Utils({
 })
 
 if __name__ == "__main__":
-    env = CartPoleWrapper(args.adversary)   # equivalent to gym.make("CartPole-v1")
+    env = CartPoleWrapper(adversary=0)   # equivalent to gym.make("CartPole-v1")
     nnet = nn(env)
 
     if args.load_model:

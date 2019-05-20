@@ -32,13 +32,13 @@ class CartPoleWrapper(CartPoleEnv):
         self.discount = 0.5
 
         # Actions, Reset range and loss weighting:
-        self.adversary = adversary  # Enumerate: 0:None, 1:Adversary, 2:EveryStepRandom, 3:LargeRandom, 4:Normal
+        self.adversary = adversary  # Enumerate: 0:Adversary, 1:None 2:EveryStepRandom, 3:LargeRandom, 4:Normal
         self.player_action_space = [1, -1]
         self.expected_force = 0.05  # The expected force should be this no matter what
 
         self.adv_action_space = [1, -1]  # default is nnet adversary for #1 and #2
         self.handicap = self.expected_force
-        if self.adversary == 0:  # no adversary
+        if self.adversary == 1:  # no adversary
             self.adv_action_space = [0]
         if self.adversary == 3:
             self.adv_action_space = [1, -1, 0]
@@ -61,9 +61,9 @@ class CartPoleWrapper(CartPoleEnv):
 
     def get_agent_action(self, a, agent):
         # agent is always nnet, and if adv == 1, then it is nnet too
-        if agent == 0 or self.adversary == 1:
+        if agent == 0 or self.adversary == 0:
             return a
-        if self.adversary == 0:
+        if self.adversary == 1:
             return 0
 
         # else, return an action from the other agent types
