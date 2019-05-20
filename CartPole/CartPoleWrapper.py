@@ -21,7 +21,7 @@ class CartPoleWrapper(CartPoleEnv):
       - 'get_state_2d_size', 'get_action_size', 'get_observation', 'get_state_2d_size' are obvious
     """
 
-    def __init__(self):
+    def __init__(self, adversary):
         super().__init__()
         # flattened and 2d state parameters
         self.state_bins = 25  # 30 puts us out of memory
@@ -32,8 +32,19 @@ class CartPoleWrapper(CartPoleEnv):
         self.discount = 0.5
 
         # Actions, Reset range and loss weighting:
-        self.action_space = [-1, 1]
-        self.handicap = 0  # 0.05
+        self.adversary = adversary  # Enumerate: 0:None, 1:Adversary, 2:EveryStepRandom, 3:LargeRandom, 4:Normal
+        self.player_action_space = [1, -1]
+        self.expected_force = 0.05  # The expected force should be this no matter what
+
+        self.adv_action_space = [1, -1]  # default is nnet adversary for #1 and #2
+        self.handicap = self.expected_force
+        if self.adversary == 0:  # no adversary
+            self.adv_action_space = [0]
+        if self.adversary == 3:
+            self.adv_action_space = [1, -1, 0]
+            self.handicap = 1  # handicap is one here, because the handicap is moves = 0 every 20 turns
+
+
         self.reset_rng = 0.3  # +-rng around 0, when the state is normed (so x=[-1, 1], theta=[-1, 1]....)
         self.loss_weights = [0.25, 0.1, 0.7, 1]  # multiply state by this to increase it's weighing compared to x
         self.weight_norm = sum(self.loss_weights)  # increase this to increase the effect of the terminal cost
@@ -46,15 +57,34 @@ class CartPoleWrapper(CartPoleEnv):
         self.extra_steps = 0  # counts up to max_steps once done is returned
         self.steps_till_done = 200
 
-        self.tau = 0.02  # 0.02
+        self.tau = 0.02  # 0.
 
-    def step(self, a, player, next_true_step=False):
-        assert a in range(self.get_action_size()), "%r (%s) invalid action" % (a,  type(a))
+    def get_agent_action(self, a, agent):
+        # agent is always nnet, and if adv == 1, then it is nnet too
+        if agent == 0 or self.adversary == 1:
+            return a
+        if self.adversary == 0:
+            return 0
+
+        # else, return an action from the other agent types
+        if self.adversary == 2:  # Every Step is random with equal probabilities
+            return np.random.choice(range(len(self.adv_action_space)))
+        if self.adversary == 3:  # Every N steps, we take a random large hit. 0 otherwise
+            p_force = 0.5*self.expected_force/1  # 1 is the power of the impulse as a proportion of self.force_mag
+            action = np.random.choice(range(len(self.adv_action_space)), p=[p_force, p_force, 1-2*p_force])
+            return action
+
+    def step(self, a, agent, next_true_step=False):
+        assert a in range(self.get_action_size(agent)), "%r (%s) invalid action" % (a,  type(a))
         state = self.state
         x, x_dot, theta, theta_dot = state
-        a = self.action_space[a]  # convert from [0, 1] -> [-1, 1]
-        f_1 = a * self.force_mag if player == 0 else 0
-        f_2 = self.handicap * a * self.force_mag if player == 1 else 0
+
+        if agent == 0:
+            f_1 = self.player_action_space[a] * self.force_mag
+            f_2 = 0
+        else:
+            f_1 = 0
+            f_2 = self.handicap * self.adv_action_space[a] * self.force_mag
 
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
@@ -98,7 +128,7 @@ class CartPoleWrapper(CartPoleEnv):
         if init_state is None:
             rng = self.reset_rng if reset_rng is None else reset_rng
 
-            normed_obs = self.np_random.uniform(low=-rng, high=self.reset_rng, size=(4,))
+            normed_obs = self.np_random.uniform(low=-rng, high=rng, size=(4,))
             self.state = self.undo_normed_observation(normed_obs)
             self.steps = 0  # only want to reset steps if it is a true reset
             self.mcts_steps = 0
@@ -178,8 +208,9 @@ class CartPoleWrapper(CartPoleEnv):
                        ]
         return unnormed_obs
 
-    def get_action_size(self):  # only works for discrete actions need to update!
-        return len(self.action_space)
+    def get_action_size(self, agent):  # only works for discrete actions need to update!
+        a_space = len(self.player_action_space)if agent == 0 else len(self.adv_action_space)
+        return a_space
 
     def get_state_2d_size(self):
         return 4, 1

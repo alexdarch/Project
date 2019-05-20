@@ -6,16 +6,17 @@ from CartPoleWrapper import CartPoleWrapper
 
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
-    'policyIters': 8,
-    'trainEps': 5,  # 50,
-    'testEps': 5,   # 15,
-    'numMCTSSims': 20,  # 15/20,
+    'policyIters': 8,  # 8
+    'adversary': 0,  # Enumerate: 0:None, 1:Adversary, 2:EveryStepRandom, 3:LargeRandom
+    'trainEps': 1,  # 40,
+    'testEps': 10,   # 10,
+    'numMCTSSims': 15,  # 15/20,
     'tempThreshold': 7,
     'updateThreshold': 0,  # the best mean needs to be thresh x as good to stay as best
     'cpuct': 1.0,
     'keepAbove': 0,
-    'mctsTree': False,
-    'renderTestEps': False,
+    'mctsTree': True,
+    'renderTestEps': True,
 
     'checkpoint_folder': "NetCheckpoints",
     'load_model': False,
@@ -26,7 +27,7 @@ args = Utils({
 })
 
 if __name__ == "__main__":
-    env = CartPoleWrapper()   # equivalent to gym.make("CartPole-v1")
+    env = CartPoleWrapper(args.adversary)   # equivalent to gym.make("CartPole-v1")
     nnet = nn(env)
 
     if args.load_model:

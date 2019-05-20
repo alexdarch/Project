@@ -20,7 +20,7 @@ class MCTS:
         # for plotting a tree diagram
         self.tree = Tree()
 
-    def get_action_prob(self, state_2d, root_state, player, temp=1):
+    def get_action_prob(self, state_2d, root_state, agent, temp=1):
         """
         This function performs numMCTSSims simulations of MCTS starting from
         canonicalBoard.
@@ -28,16 +28,14 @@ class MCTS:
             probs: a policy vector where the probability of the ith action is
                    proportional to Nsa[(s,a)]**(1./temp)
         """
-        # observation = curr_env.get_state()   # obs = [x_pos, x_vel, angle, ang_vel]
-        # print("Base State: ", curr_env.get_mcts_state(state, g_accuracy))
+        # no point in doing mcts if its random anyways
         for i in range(self.args.numMCTSSims):
             self.env.reset(root_state)
-            self.search(state_2d, player, done=False)
+            self.search(state_2d, agent, done=False)
 
         self.env.reset(root_state)
         s = self.env.get_mcts_state(root_state, g_accuracy)
-        # print(self.Nsa[(s, 0, 0)], self.Nsa[(s, 1, 0)], self.Nsa[(s, 0, 1)], self.Nsa[(s, 1, 1)])
-        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.env.get_action_size())]
+        counts = [self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.env.get_action_size(agent))]
 
         if temp == 0:
             bestA = np.argmax(counts)
@@ -49,7 +47,7 @@ class MCTS:
         probs = [x / float(sum(counts)) for x in counts]
         return probs
 
-    def search(self, state_2d, player, done):
+    def search(self, state_2d, agent, done):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -61,20 +59,20 @@ class MCTS:
         updated.
         NOTE: the return values are the negative of the value of the current
         state. This is done since v is in [-1,1] and if v is the value of a
-        state for the current player, then its value is -v for the other player.
+        state for the current agent, then its value is -v for the other agent.
         Returns:
             v: the negative of the value of the current canonicalBoard
 
         *** remember to convert v to float if bringing in a new definition
         """
-        player %= 2
+        agent %= 2
         state = self.env.get_state()
         s = self.env.get_mcts_state(state, g_accuracy)
 
         # ---------------- TERMINAL STATE ---------------
         if done:
             if self.env.mcts_steps >= self.env.steps_till_done:
-                _, v = self.nnet.predict(state_2d, player)
+                _, v = self.nnet.predict(state_2d, agent)
                 # print("done and got to the end at step: ", curr_env.steps, " and value: ", v)
                 return v
             # print("Done, at step: ", curr_env.steps, " returning: ", curr_env.terminal_cost)
@@ -88,19 +86,19 @@ class MCTS:
         # Note, we do not take an action here. Just get an initial policy
         # Also get the state value - work this out later
         if s not in self.Ps:
-            pi, v = self.nnet.predict(state_2d, player)
+            pi, v = self.nnet.predict(state_2d, agent)
             self.Ps[s] = pi   # list
             self.Ns[s] = 0
             return v
 
-        # ------------- GET PLAYER AND ADVERSARY ACTIONS -----------------------------
+        # ------------- GET agent AND ADVERSARY ACTIONS -----------------------------
         # search through the valid actions and update the UCB for all actions then update best actions
         # pick the action with the highest upper confidence bound
         cur_best = -float('inf')  # set current best ucb to -inf
         best_act = None  # null action
-        for a in range(self.env.get_action_size()):
+        for a in range(self.env.get_action_size(agent)):
             if (s, a) in self.Qsa:
-                q = self.Qsa[(s, a)] if player == 0 else -self.Qsa[(s, a)]
+                q = self.Qsa[(s, a)] if agent == 0 else -self.Qsa[(s, a)]
                 u = q + self.args.cpuct * self.Ps[s][a]*np.sqrt(self.Ns[s])/(1+self.Nsa[(s, a)])
             else:
                 u = self.args.cpuct * self.Ps[s][a]*np.sqrt(self.Ns[s] + EPS)
@@ -110,11 +108,11 @@ class MCTS:
                 best_act = a
         a = best_act
         # ----------- RECURSION TO NEXT STATE ------------------------
-        next_state, loss, next_done, _ = self.env.step(a, player)      # not a true step -> will update mcts_steps
+        next_state, loss, next_done, _ = self.env.step(a, agent)      # not a true step -> will update mcts_steps
         if self.args.mctsTree:
-            self.add_tree_node(state, next_state, a, player)
+            self.add_tree_node(state, next_state, a, agent)
         next_state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
-        v = self.search(next_state_2d, player+1, next_done)
+        v = self.search(next_state_2d, agent+1, next_done)
 
         # ------------ BACKUP Q-VALUES AND N-VISITED -----------------
         # after we reach the terminal condition then the stack unwinds and we
@@ -130,12 +128,12 @@ class MCTS:
         self.Ns[s] += 1
         return v
 
-    def add_tree_node(self, prev_state, curr_state, a, player):
+    def add_tree_node(self, prev_state, curr_state, a, agent):
         """
         Updates the tree with each new node's
             "name, s_t" - the mcts_state e.g. (699923423, 124134235, 234234124, 23524634634)
-            "player, p_t" - the player at time t
-            "action, a_(t-1)" - the action needed to get from prev_state to the curr_state (the previous players action)
+            "agent, p_t" - the agent at time t
+            "action, a_(t-1)" - the action needed to get from prev_state to the curr_state (the previous agents action)
         Note, normally a node is stored as (s, a) = (curr_state, action from curr_state)...
         However, this would mean the tree has to be 2x as big. Instead use (curr_state, action to curr_state).
         Luckily, ete3 always puts +1 on the left!
@@ -146,21 +144,21 @@ class MCTS:
         prev_len = len(self.tree.search_nodes(name=parent_mcts_state))
         curr_len = len(self.tree.search_nodes(name=child_mcts_state))
 
-        # note since the action is taken from prev->curr, store player as the player that took the action to get to the current state.
+        # note since the action is taken from prev->curr, store agent as the agent that took the action to get to the current state.
         # if neither the parent or the child node exist then this must be a root
         if curr_len == 0 and prev_len == 0:
             parent = self.tree.get_tree_root()
             parent.name = parent_mcts_state; parent.dist = 5
             child = parent.add_child(name=child_mcts_state, dist=5)
-            parent.add_features(action=None, player=player)  # the root node doesn't have an action that got to it
-            child.add_features(action=a, player=(player+1) % 2)
+            parent.add_features(action=None, agent=agent)  # the root node doesn't have an action that got to it
+            child.add_features(action=a, agent=(agent+1) % 2)
             return
 
         # if there are no nodes with curr_mcts_state already in existence then find the parent and add a child
         parent = self.tree.search_nodes(name=parent_mcts_state)[0]
         if len(self.tree.search_nodes(name=child_mcts_state)) == 0:
             child = parent.add_child(name=child_mcts_state, dist=5)
-            child.add_features(action=a, player=(player+1) % 2)
+            child.add_features(action=a, agent=(agent+1) % 2)
 
         # if child and parent already exist then this must be another simulation -> dont need to add another node
         # if we have just taken the next true step, then change the node style
@@ -188,13 +186,13 @@ class MCTS:
         root = next(tree_itr)   # skip the first two nodes the root and the root's root (not sure why there's 2?)
         root_face = TextFace(u'(s\u209C, a\u209C\u208B\u2081, agent\u209C) = ({}, {}, {}, Ns={})'.format(
             [float(dim) / g_accuracy for dim in root.name],
-            root.action, root.player, self.Ns[root.name]))
+            root.action, root.agent, self.Ns[root.name]))
         root_face.background.color = '#FF0000'
         root.add_face(root_face, column=0, position="branch-top")
 
         for node in tree_itr:
-            s, a, player = node.up.name, node.action, node.up.player
-            p_from_a = node.player
+            s, a, agent = node.up.name, node.action, node.up.agent
+            p_from_a = node.agent
             state = [float(dim) / g_accuracy for dim in node.name]
             # note that (s, a) is the same as node.name (since parent state & action taken from there = child state)
             try:
@@ -212,21 +210,21 @@ class MCTS:
             loss_face.background.color = c_loss   # need rgb colour in hex, "#FFFFFF"=(255, 255, 255)
             node.add_face(loss_face, column=0, position="branch-top")
 
-            # -------- ADD ANNOTATION FOR ACTION VALUE WRT PLAYER, Q --------
-            #print("s={}, a={}, player={}".format(s, a, player))
+            # -------- ADD ANNOTATION FOR ACTION VALUE WRT agent, Q --------
+            #print("s={}, a={}, agent={}".format(s, a, agent))
             if (s, a) in self.Qsa:
 
                 #print(self.Ns[s])
                 #print(self.Nsa[(s, a)])
                 #print(self.Ps[s][a])
-                q = self.Qsa[(s, a)] if player == 0 else -self.Qsa[(s, a)]
+                q = self.Qsa[(s, a)] if agent == 0 else -self.Qsa[(s, a)]
                 ucb = self.args.cpuct * self.Ps[s][a]*np.sqrt(self.Ns[s])/(1+self.Nsa[(s, a)])
                 u = self.Usa[(s, a)]
             else:
                 q = 0
                 ucb = self.args.cpuct * self.Ps[node.name][a]*np.sqrt(self.Ns[s] + EPS)
                 u = ucb
-            q_formula = '(Qs)' if player == 0 else '(-Qs)'
+            q_formula = '(Qs)' if agent == 0 else '(-Qs)'
             QA_face = TextFace("u = {:.3f}{} + {:.3f}(ucb) = {:.3f}".format(q, q_formula, ucb, u))
 
             c_value = cm.viridis(255+int((q+ucb)*255))  # plasma goes from 0-255

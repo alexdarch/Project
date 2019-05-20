@@ -33,7 +33,7 @@ class Controller:
         # -------- POLICY STATS ----------
         self.policy_iters = 0
         self.curr_player_elo = 1000
-        self.curr_adversary_elo = 1000
+        self.curr_adv_elo = 1000
 
         # ------- CONSTS AFFECTING THE VALUE FUNCTION ----------
         self.max_steps_beyond_done = self.env.max_steps_beyond_done
@@ -44,7 +44,7 @@ class Controller:
     def execute_episode(self):
 
         """
-        This function executes one episode of self-play, with both players acting simultaneously.
+        This function executes one episode of self-play, with both agents acting simultaneously.
         As the game is played, each step is added as a training example to trainExamples. The game is played until
         it reachs max_steps_till_done. After the game finishes, values are calculated from the losses.
         It uses a temp=1 if episodeStep < tempThreshold, and thereafter uses temp=0.
@@ -56,26 +56,26 @@ class Controller:
         observation = self.env.reset()
         state_2d, loss = self.env.get_state_2d(), self.env.state_loss()
         done = False
-        player = 0  # start with the player pushing on the cart (not the pole)
+        agent = 0  # start with the player pushing on the cart (not the pole)
         while not done:
             # ---------------------- RECORD STEP ------------------------
-            player %= 2  # keep player rotating through 0 and 1
+            agent %= 2  # keep agent rotating through 0 and 1
             state_2d = self.env.get_state_2d(prev_state_2d=state_2d)
             observations.append(observation)
             losses.append(loss)
-            policy_action, policy_value = self.nnet.predict(state_2d, player)
+            policy_action, policy_value = self.nnet.predict(state_2d, agent)
             policy_predictions.append([policy_action, policy_value])
 
             # ---------- GET PROBABILITIES FOR EACH ACTION --------------
             temp = int(self.env.steps < self.args.tempThreshold)  # act greedily if after 15th step
-            pi = self.mcts.get_action_prob(state_2d, observation, player, temp=temp)  # MCTS improved action-prob
-            example.append([state_2d, pi, player])
+            pi = self.mcts.get_action_prob(state_2d, observation, agent, temp=temp)  # MCTS improved action-prob
+            example.append([state_2d, pi, agent])
 
             # ---------- TAKE NEXT STEP PROBABILISTICALLY ---------------
             # take a random choice with pi probability for each action
             action = np.random.choice(len(pi), p=pi)
-            observation, loss, done, info = self.env.step(action, player, next_true_step=True)
-            player += 1
+            observation, loss, done, info = self.env.step(action, agent, next_true_step=True)
+            agent += 1
 
         # Convert Losses to expected losses (discounted into the future by self.max_steps_beyond_done)
         values = self.get_values_from_losses(losses)
@@ -147,14 +147,15 @@ class Controller:
             challenger_mcts = MCTS(self.env, self.challenger_nnet, self.args)
             current_mcts = MCTS(self.env, self.nnet, self.args)
 
-            eval = Evaluate(lambda s2d, root, player: np.argmax(current_mcts.get_action_prob(s2d, root, player, temp=0)),
-                          lambda s2d, root, player: np.argmax(challenger_mcts.get_action_prob(s2d, root, player, temp=0)),
-                            self.env, self.curr_player_elo, self.curr_adversary_elo)
-            self.curr_player_elo, self.curr_adversary_elo = eval.evaluate_policies(self.args.testEps, self.args.renderTestEps)
+            eval = Evaluate(lambda s2d, root, agent: np.argmax(current_mcts.get_action_prob(s2d, root, agent, temp=0)),
+                          lambda s2d, root, agent: np.argmax(challenger_mcts.get_action_prob(s2d, root, agent, temp=0)),
+                            self.env, self.args, self.curr_player_elo, self.curr_adv_elo)
+            chal_player_elo, chal_adv_elo = eval.evaluate_policies()
 
             # ------------------------- COMPARE POLICIES AND UPDATE ---------------------------------
-            update = True  #  always update
+            update = True  # always update
             if update:
+                self.curr_player_elo, self.curr_adv_elo = chal_player_elo, chal_adv_elo
                 self.nnet = deepcopy(self.challenger_nnet)
                 # if we are updating then the challenger nnet is the best nnet. Also checkpoint
                 self.nnet.save_net_architecture(folder=self.args.checkpoint_folder,
@@ -170,7 +171,12 @@ class Controller:
 
     def save_to_csv(self, file_name, data):
         # maybe add some unpickling for saving whole examples? or to a different function
-        file_path = os.path.join('Data', 'TrainingData', file_name + str(self.policy_iters))
+        folder = os.path.join('Data', 'TrainingData')
+        if not os.path.exists(folder):
+            print("Checkpoint Directory does not exist! Making directory {}".format(folder))
+            os.mkdir(folder)
+
+        file_path = os.path.join(folder, file_name + str(self.policy_iters))
         with open(file_path + '.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(data)
@@ -181,6 +187,6 @@ class Controller:
         policy_examples_to_csv.append([step[1] for step in policy_predictions])  # and the policy-pred value
         policy_examples_to_csv.append([step[1] for step in example_episode])  # save the MCTS actions
         policy_examples_to_csv.append([step[0] for step in policy_predictions])  # save the policy action
-        policy_examples_to_csv.append([step[2] for step in example_episode])  # save the player
+        policy_examples_to_csv.append([step[2] for step in example_episode])  # save the agent
         policy_examples_to_csv.append(observations)  # save the observations
         return policy_examples_to_csv

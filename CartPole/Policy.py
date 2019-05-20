@@ -24,14 +24,14 @@ class ResNetworkArchitecture(nn.Module):
     """
     This class specifies the base NeuralNet class. To define your own neural
     network, subclass this class and implement the functions below. The neural
-    network does not consider the current player, and instead only deals with
+    network does not consider the current agent, and instead only deals with
     the canonical form of the board.
     """
 
     def __init__(self, policy_env):
 
         self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
-        self.action_size = policy_env.get_action_size()  # only two calls here
+        self.action_size = policy_env.get_action_size(0)  # only two calls here (we only need the agent space =0)
 
         super(ResNetworkArchitecture, self).__init__()
         print("Res Network Architecture")
@@ -100,7 +100,7 @@ class ResNetworkArchitecture(nn.Module):
 class ConvNetworkArchitecture(nn.Module):
     def __init__(self, policy_env):
         self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
-        self.action_size = policy_env.get_action_size()
+        self.action_size = policy_env.get_action_size(0)
         print("Conv Network Architecture")
 
         super(ConvNetworkArchitecture, self).__init__()
@@ -134,7 +134,7 @@ class StatePlayerNetworkArchitecture(torch.nn.Module):
     def __init__(self, policy_env):
         super().__init__()
         print("State Network Architecture")
-        self.action_size = policy_env.get_action_size()  # o
+        self.action_size = policy_env.get_action_size(0)  # o
         HIDDEN = 400
         self.linear1 = torch.nn.Linear(4, HIDDEN)
         self.linear2 = torch.nn.Linear(HIDDEN, HIDDEN)
@@ -157,7 +157,7 @@ class StateAdversaryNetworkArchitecture(torch.nn.Module):
     def __init__(self, policy_env):
         super().__init__()
         print("State Network Architecture")
-        self.action_size = policy_env.get_action_size()  # o
+        self.action_size = policy_env.get_action_size(1)
         HIDDEN = 400
         self.linear1 = torch.nn.Linear(4, HIDDEN)
         self.linear2 = torch.nn.Linear(HIDDEN, HIDDEN)
@@ -184,7 +184,7 @@ class NeuralNet:
         self.player_architecture = StatePlayerNetworkArchitecture(policy_env)
         self.adversary_architecture = StateAdversaryNetworkArchitecture(policy_env)
         self.x_size, self.y_size = policy_env.get_state_2d_size()
-        self.action_size = policy_env.get_action_size()
+        self.action_size = policy_env.get_action_size(0)
 
         if pargs.cuda:
             self.player_architecture.cuda()
@@ -252,7 +252,7 @@ class NeuralNet:
             writer.writerows(agent_losses)
         NeuralNet.trains += 1
 
-    def predict(self, state_2d, player):
+    def predict(self, state_2d, agent):
         """
         Input:
             board: current board in its canonical form.
@@ -261,7 +261,7 @@ class NeuralNet:
                 env.get_action_size
             v: a float in [-1,1] that gives the value of the current board
         """
-        assert player == 0 or player == 1, 'Not a valid Player'
+        assert agent == 0 or agent == 1, 'Not a valid agent'
         architectures = [self.player_architecture, self.adversary_architecture]
         # preparing input
         state = torch.FloatTensor(state_2d.astype(np.float64))
@@ -269,12 +269,12 @@ class NeuralNet:
             state = state.contiguous().cuda()
         state = state.view(1, self.x_size, self.y_size)
 
-        architectures[player].eval()
-        pi, v = architectures[player].forward(state)
+        architectures[agent].eval()
+        pi, v = architectures[agent].forward(state)
         pi, v = pi.data.cpu().numpy()[0], v.data.cpu().numpy()[0]
         pi, v = pi.tolist(), v.tolist()[0]
-        #pi = [+100, +100] if player == 1 else pi
-        #v = -100 if player == 1 else v
+        #pi = [+100, +100] if agent == 1 else pi
+        #v = -100 if agent == 1 else v
 
         return pi, v
 
