@@ -34,16 +34,15 @@ class CartPoleWrapper(CartPoleEnv):
         # Actions, Reset range and loss weighting:
         self.adversary = adversary  # Enumerate: 0:Adversary, 1:None 2:EveryStepRandom, 3:LargeRandom, 4:Normal
         self.player_action_space = [1, -1]
-        self.expected_force = 0.05  # The expected force should be this no matter what
+        self.avg_adv_force = 0.05  # The expected force should be this no matter what
 
-        self.adv_action_space = [1, -1]  # default is nnet adversary for #1 and #2
-        self.handicap = self.expected_force
+        self.adv_action_space = [1, -1]  # default is nnet adversary for #0 and #2
+        self.handicap = self.avg_adv_force
         if self.adversary == 1:  # no adversary
             self.adv_action_space = [0]
         if self.adversary == 3:
             self.adv_action_space = [1, -1, 0]
             self.handicap = 1  # handicap is one here, because the handicap is moves = 0 every 20 turns
-
 
         self.reset_rng = 0.3  # +-rng around 0, when the state is normed (so x=[-1, 1], theta=[-1, 1]....)
         self.loss_weights = [0.25, 0.1, 0.7, 1]  # multiply state by this to increase it's weighing compared to x
@@ -70,7 +69,7 @@ class CartPoleWrapper(CartPoleEnv):
         if self.adversary == 2:  # Every Step is random with equal probabilities
             return np.random.choice(range(len(self.adv_action_space)))
         if self.adversary == 3:  # Every N steps, we take a random large hit. 0 otherwise
-            p_force = 0.5*self.expected_force/1  # 1 is the power of the impulse as a proportion of self.force_mag
+            p_force = 0.5*self.avg_adv_force/1  # 1 is the power of the impulse as a proportion of self.force_mag
             action = np.random.choice(range(len(self.adv_action_space)), p=[p_force, p_force, 1-2*p_force])
             return action
 

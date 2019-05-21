@@ -204,7 +204,7 @@ class MCTS:
             # -------- ADD ANNOTATION FOR STATE LOSS AND ACTION TAKEN ----------
             loss = self.env.state_loss(state=state)
             # unicode to get subscripts
-            loss_face = TextFace(u'(s\u209C, a\u209C\u208B\u2081, agent\u209C) = ({0}, {1}, {2}),  L = {3:.3f}, V_pred = {4:.3f}'.format(self.env.round_state(state=state), a, p_from_a, loss, v))
+            loss_face = TextFace(u'(x\u209C, u\u209C\u208B\u2081, agent\u209C) = ({0}, {1}, {2}),  c(x\u209C) = {3:.3f}, v_pred = {4:.3f}'.format(self.env.round_state(state=state), a, p_from_a, loss, v))
             c_loss = cm.viridis(255+int(loss*255))  # viridis goes from 0-255
             c_loss = "#{0:02x}{1:02x}{2:02x}".format(*[int(round(i * 255)) for i in [c_loss[0], c_loss[1], c_loss[2]]])
             loss_face.background.color = c_loss   # need rgb colour in hex, "#FFFFFF"=(255, 255, 255)
@@ -224,8 +224,8 @@ class MCTS:
                 q = 0
                 ucb = self.args.cpuct * self.Ps[node.name][a]*np.sqrt(self.Ns[s] + EPS)
                 u = ucb
-            q_formula = '(Qs)' if agent == 0 else '(-Qs)'
-            QA_face = TextFace("u = {:.3f}{} + {:.3f}(ucb) = {:.3f}".format(q, q_formula, ucb, u))
+            q_formula = '(Q(x))' if agent == 0 else '(-Q(x))'
+            QA_face = TextFace("U\u209C = {:.3f}{} + {:.3f}(ucb) = {:.3f}".format(q, q_formula, ucb, u))
 
             c_value = cm.viridis(255+int((q+ucb)*255))  # plasma goes from 0-255
             c_value = "#{0:02x}{1:02x}{2:02x}".format(
@@ -236,7 +236,7 @@ class MCTS:
             # -------- ADD ANNOTATION FOR NUMBER OF VISITS -------
             # have to use node.name for printing Ns
             ns = 0 if node.name not in self.Ns else self.Ns[node.name]
-            N_face = TextFace(" Nsa(s_par, a)={}, Ns(s)={}".format(self.Nsa[(s, a)], ns))
+            N_face = TextFace(" Nsa(x\u209C\u208B\u2081, u\u209C)={}, Ns(x)={}".format(self.Nsa[(s, a)], ns))
 
             c_vis = cm.YlGn(int(255*(1-self.Nsa[(s, a)]/(self.args.numMCTSSims*2))))  # YlGn goes from 0-255
             c_vis = "#{0:02x}{1:02x}{2:02x}".format(*[int(round(i * 255)) for i in [c_vis[0], c_vis[1], c_vis[2]]])

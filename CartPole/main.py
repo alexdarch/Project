@@ -6,17 +6,13 @@ from CartPoleWrapper import CartPoleWrapper
 
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
-    'policyIters': 8,  # 8
-    'adversary': 0,  # Enumerate: 0:Adversary, 1:None, 2:EveryStepRandom, 3:LargeRandom
-    'trainEps': 1,  # 40,
-    'testEps': 10,   # 10,
+    'policyIters': 20,  # 8
+    'trainEps': 40,  # 40,
     'numMCTSSims': 15,  # 15/20,
     'tempThreshold': 7,
-    'updateThreshold': 0,  # the best mean needs to be thresh x as good to stay as best
     'cpuct': 1.0,
-    'keepAbove': 0,
-    'mctsTree': True,
-    'renderTestEps': True,
+    'mctsTree': False,
+    'renderEps': False,
 
     'checkpoint_folder': "NetCheckpoints",
     'load_model': False,
@@ -27,18 +23,16 @@ args = Utils({
 })
 
 if __name__ == "__main__":
-    env = CartPoleWrapper(adversary=0)   # equivalent to gym.make("CartPole-v1")
+    env = CartPoleWrapper(adversary=0)   # 0 is nnet adversary, which we always use whilst training
     nnet = nn(env)
 
     if args.load_model:
         nnet.load_net_architecture(args.load_folder_file[0], args.load_folder_file[1])
+        # print("Load trainExamples from file")
+        # c.loadTrainExamples()
         print("loaded a nnet")
 
     c = Controller(env, nnet, args)
-    # if args.load_model:
-    #     print("Load trainExamples from file")
-    #     c.loadTrainExamples()
-
     print("Loaded Correctly\n")
     c.policy_iteration()
 

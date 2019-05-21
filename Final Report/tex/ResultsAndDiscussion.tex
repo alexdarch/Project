@@ -4,6 +4,31 @@
 \onlyinsubfile{\tableofcontents{}}
 \chapter{Results and Discussion}
 
+\section{Training}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{Tree.PNG}
+    \caption{An example MCTS tree structure lasting 33 steps with 15 MCTS simulations per step. The neural network has not been trained and is working against an untrained adversary with and average power of 5\% of the player. Lighter (yellow) colours represent ``better'' states.}
+    \label{fig:tree}
+\end{figure}
+
+\Cref{fig:tree} shows the structure of a typical tree search when relying solely on the tree search. This is significantly better than with no tree-search, which typically achieves an episode length of 7.
+
+\texttt{Do graph of MCTS sims vs episode length with no training?}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{MicroTree.PNG}
+    \caption{A zoomed in view of \cref{fig:tree}. The three colours of each node are based on the value of $U=Q(\boldsymbol{x}, u) + ucb$ as in \cref{equ:IPucb}, the number of state-action visits, $N(\boldsymbol{x}, u)$, and the state-cost, $c$.}
+    \label{fig:microtree}
+\end{figure}
+
+\Cref{fig:microtree} shows the max-max nature of the tree search (after negating the action-value for the adversary). also highlights how Nsa is related to $V_pred$ and $U$, with Nsa almost always being the right one.
+
+
+\section{Performance}
+
 \section{Performance Without an Adversary}
 
 
