@@ -7,12 +7,15 @@ from CartPoleWrapper import CartPoleWrapper
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
     'policyIters': 20,  # 8
+    'initialTrainEps': 40,
+    'unopposedTrains': 2,         # how many trains do we ignore the adversary for?
     'trainEps': 40,  # 40,
-    'numMCTSSims': 15,  # 15/20,
+    'numMCTSSims': 20,  # 15/20,
     'tempThreshold': 7,
     'cpuct': 1.0,
     'mctsTree': False,
     'renderEps': False,
+
 
     'checkpoint_folder': "NetCheckpoints",
     'load_model': False,
@@ -23,7 +26,7 @@ args = Utils({
 })
 
 if __name__ == "__main__":
-    env = CartPoleWrapper(adversary=0)   # 0 is nnet adversary, which we always use whilst training
+    env = CartPoleWrapper(adversary=0, unopposedTrains=args.unopposedTrains)   # 0 is nnet adversary, which we always use whilst training
     nnet = nn(env)
 
     if args.load_model:

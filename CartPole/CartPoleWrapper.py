@@ -21,8 +21,9 @@ class CartPoleWrapper(CartPoleEnv):
       - 'get_state_2d_size', 'get_action_size', 'get_observation', 'get_state_2d_size' are obvious
     """
 
-    def __init__(self, adversary):
+    def __init__(self, adversary, unopposedTrains):
         super().__init__()
+
         # flattened and 2d state parameters
         self.state_bins = 25  # 30 puts us out of memory
         scaling = 1 / 3  # 1/3 gives a flat distribution if obs ~ gaussian, lowering it gives more weight to values -> 0
@@ -33,11 +34,12 @@ class CartPoleWrapper(CartPoleEnv):
 
         # Actions, Reset range and loss weighting:
         self.adversary = adversary  # Enumerate: 0:Adversary, 1:None 2:EveryStepRandom, 3:LargeRandom, 4:Normal
+        self.unopposedTrains = unopposedTrains
         self.player_action_space = [1, -1]
-        self.avg_adv_force = 0.05  # The expected force should be this no matter what
+        self.avg_adv_force = 0.04  # Given by equating linear thetadot from a force
 
         self.adv_action_space = [1, -1]  # default is nnet adversary for #0 and #2
-        self.handicap = self.avg_adv_force
+        self.handicap = 0
         if self.adversary == 1:  # no adversary
             self.adv_action_space = [0]
         if self.adversary == 3:
@@ -45,33 +47,23 @@ class CartPoleWrapper(CartPoleEnv):
             self.handicap = 1  # handicap is one here, because the handicap is moves = 0 every 20 turns
 
         self.reset_rng = 0.3  # +-rng around 0, when the state is normed (so x=[-1, 1], theta=[-1, 1]....)
-        self.loss_weights = [0.25, 0.1, 0.7, 1]  # multiply state by this to increase it's weighing compared to x
+        self.loss_weights = [0.4, 0.1, 0.7, 1]  # multiply state by this to increase it's weighing compared to x
         self.weight_norm = sum(self.loss_weights)  # increase this to increase the effect of the terminal cost
         self.terminal_cost = -1
 
         # to stop episodes running over
         self.steps = 0
         self.mcts_steps = 0
-        self.max_steps_beyond_done = 6
+        self.max_steps_beyond_done = 15
         self.extra_steps = 0  # counts up to max_steps once done is returned
-        self.steps_till_done = 200
+        self.steps_till_done = 400
 
-        self.tau = 0.02  # 0.
+        self.tau = 0.01  # 0.02
 
-    def get_agent_action(self, a, agent):
-        # agent is always nnet, and if adv == 1, then it is nnet too
-        if agent == 0 or self.adversary == 0:
-            return a
-        if self.adversary == 1:
-            return 0
-
-        # else, return an action from the other agent types
-        if self.adversary == 2:  # Every Step is random with equal probabilities
-            return np.random.choice(range(len(self.adv_action_space)))
-        if self.adversary == 3:  # Every N steps, we take a random large hit. 0 otherwise
-            p_force = 0.5*self.avg_adv_force/1  # 1 is the power of the impulse as a proportion of self.force_mag
-            action = np.random.choice(range(len(self.adv_action_space)), p=[p_force, p_force, 1-2*p_force])
-            return action
+    def increment_handicap(self, iter):
+        # note the first 1-0.5**0 = 0 -> add one to it
+        self.handicap = 0 if iter < self.unopposedTrains else self.avg_adv_force * (1-0.5**(iter-self.unopposedTrains+1))  # 0.5 -> (0, 0.5, 0.75...)
+        print(self.handicap)
 
     def step(self, a, agent, next_true_step=False):
         assert a in range(self.get_action_size(agent)), "%r (%s) invalid action" % (a,  type(a))
@@ -121,6 +113,21 @@ class CartPoleWrapper(CartPoleEnv):
         # if it isn't a true step then return done if fallen over
         # -> doesn't stop the sim, but does add -1 to v in MCTS
         return np.array(self.state), loss, done, {}
+
+    def get_agent_action(self, a, agent):
+        # agent is always nnet, and if adv == 1, then it is nnet too
+        if agent == 0 or self.adversary == 0:
+            return a
+        if self.adversary == 1:
+            return 0
+
+        # else, return an action from the other agent types
+        if self.adversary == 2:  # Every Step is random with equal probabilities
+            return np.random.choice(range(len(self.adv_action_space)))
+        if self.adversary == 3:  # Every N steps, we take a random large hit. 0 otherwise
+            p_force = 0.5*self.avg_adv_force/1  # 1 is the power of the impulse as a proportion of self.force_mag
+            action = np.random.choice(range(len(self.adv_action_space)), p=[p_force, p_force, 1-2*p_force])
+            return action
 
     def reset(self, init_state=None, reset_rng=None):
 

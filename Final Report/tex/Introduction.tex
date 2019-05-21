@@ -14,9 +14,9 @@ It wasn't until the unification of the calculus of variations, classical control
 
 \begin{align}
     \label{equ:detval} 
-    V(x_k, k) & = \underset{u_{k:h-1}}{min} \bigg( \sum_{i=k}^{h-1} c(x_i, u_i) + J_h(x_h) \bigg) \\ 
-    & = \underset{u_k}{min} \Big( c(x_k, u_k) + V(x_{k+1}, k+1) \Big) \\
-    u^{*}_k & = \underset{u_k}{argmin} \Big( c(x_k, u_k) + V(x_{k+1}, k+1) \Big)
+    V(x_k, k) & = \underset{u_{k:h-1}}{\min} \bigg( \sum_{i=k}^{h-1} c(x_i, u_i) + J_h(x_h) \bigg) \\ 
+    & = \underset{u_k}{\min} \Big( c(x_k, u_k) + V(x_{k+1}, k+1) \Big) \\
+    u^{*}_k & = \underset{u_k}{\text{argmin}} \Big( c(x_k, u_k) + V(x_{k+1}, k+1) \Big) \\
 \end{align}
 
 Where $c(x_i, u_i)$ is the cost as a function of the state and input at time i, $J_h(x_h)$ is the terminal cost, and $V(x_k, k)$ is the value function.
@@ -30,9 +30,9 @@ Two further generalisations to dynamical systems and optimal control as defined 
 
 \begin{align}
     \label{equ:mdpval} 
-    V(x_k) & = \underset{u_k}{max} \bigg( \sum_{i=k}^{\infty} \lambda^{i-k} r(x_i, u_i) \bigg) \\ 
-    & = \underset{u_k}{max} \; \mathbb{E} \Big[ r(x_k, u_k) + \lambda V(x_{k+1}) \Big] \\
-    u^{*}_k & = \underset{u_k}{argmax}\; \mathbb{E} \Big[ r(x_k, u_k) + \lambda V(x_{k+1}) \Big]
+    V(x_k) & = \underset{u_k}{\max} \bigg( \sum_{i=k}^{\infty} \lambda^{i-k} r(x_i, u_i) \bigg) \\ 
+    & = \underset{u_k}{\max} \; \mathbb{E} \Big[ r(x_k, u_k) + \lambda V(x_{k+1}) \Big] \\
+    u^{*}_k & = \underset{u_k}{\text{argmax}}\; \mathbb{E} \Big[ r(x_k, u_k) + \lambda V(x_{k+1}) \Big]
 \end{align}
 
 Reinforcement learning (RL) aims to learn the optimal policy, $\pi^{*}(x_k)$ ($=u^{*}(x_k)$ in control) of an MDP. This differs from optimal control in its inherent stochastic nature and therefore can lead to intractable search spaces. A solution to this is to learn form sample trajectories. Algorithms such as Q-Learning, SARSA and DYNA have recently had great success in control applications such as, their use in controlling mobile robots \cite{Qlearning, RLoverview}. Furthermore, the advent of neural networks has led to the extension of these to functional approximations from tabula-rasa methods, making the control highly non-linear dynamical systems possible. Notably, Deepmind's recent success with training a robot to gently manipulate objects \cite{Robothand}, would not be possible to reproduce using classical or modern control techniques due to dimensional problems.
@@ -64,7 +64,7 @@ The loss function for the neural network is given by:
 \end{equation}
 
 For chess, the input state consists of an image stack of 119 8x8 planes representing the board state at times $ \{ t, t-1, ..., t-8 \} $, and planes representing repetitions, colours and castling etc. The output action \textit{p.m.f} is a 8x8x73=4672 vector representing every possible move from each piece, illegal moves are then masked. The output value, $v \in (-1, 1)$. 
-The network itself consists of an input convolutional block and two separate ``heads''. The policy head has \textit{softmax} activation function, preceded by series of \textit{ReLU} linear layers and batch normalisation layers. The value head also has this but with a \textit{tanh} output activation. The input convolutional block consists a single convolutional layer followed by 19-39 residual blocks.
+The network itself consists of an input convolutional block and two separate ``heads''. The policy head has \textit{softmax} activation function, preceded by series of \textit{ReLU} linear layers and batch normalisation layers. The value head also has this but with a \textit{tanh} output activation. The input convolutional block consists a single convolutional layer followed by 19 to 39 residual blocks (depending on the game).
 
 \subsection{Monte Carlo Tree Search}
 \label{sec:mctsintro}
@@ -77,10 +77,10 @@ The network itself consists of an input convolutional block and two separate ``h
 \end{figure}
 
 \Cref{fig:MCTS}a:
-A MCTS is performed at each step of an episode. The state at which the tree search starts then becomes the root state, $s_{root}$. From the root state, the tree search can move to an edge (s, a) by selecting an action, a. To ensure exploration, before selection a prior, $P(s, a) = (1-\epsilon)\boldsymbol{p}_{\theta, root} + \epsilon \boldsymbol{\eta}$, where $\boldsymbol{\eta} \sim Dir(0.3)$ and $\epsilon = 0.25$ is added. Each edge stores a prior action- textit{p.m.f.} and an initial value $\boldsymbol{p}_\theta (s_{t-1}, a_{t-1}), v(s_{t-1}, a_{t-1}) =f_\theta(s_t)$ \footnote{note that action $a_{t-1}$ from state $s_{t-1}$ yields state $s_t$, if the system is deterministic. Therefore, $(s_{t-1}, a_{t-1}) = (s_t)$ in this setting.}; a visit count, N(s, a); and an action-value, Q(s, a). Actions are selected by maximising an the action-value plus an upper confidence bound, which encourages exploration. The constant c ($\sim 1$) can be increased to encourage exploration.
+A MCTS is performed at each step of an episode. The state at which the tree search starts then becomes the root state, $s_{root}$. From the root state, the tree search can move to an edge (s, a) by selecting an action, a. To ensure exploration, before selection a prior, $P(s, a) = (1-\epsilon)\boldsymbol{p}_{\theta, root} + \epsilon \boldsymbol{\eta}$, where $\boldsymbol{\eta} \sim Dir(0.3)$ and $\epsilon = 0.25$ is added. Each edge stores a prior action- \textit{p.m.f.} and an initial value $\boldsymbol{p}_\theta (s_{t-1}, a_{t-1}), v(s_{t-1}, a_{t-1}) =f_\theta(s_t)$ \footnote{note that action $a_{t-1}$ from state $s_{t-1}$ yields state $s_t$, if the system is deterministic. Therefore, $(s_{t-1}, a_{t-1}) = (s_t)$ in this setting.}; a visit count, N(s, a); and an action-value, Q(s, a). Actions are selected by maximising an the action-value plus an upper confidence bound, which encourages exploration. The constant c ($\sim 1$) can be increased to encourage exploration.
 
 \begin{equation}
-   a_{selected} = \underset{\forall a}{argmax} \Big{\{}Q(s, a) + c \cdot\boldsymbol{p}_\theta (s, a)\frac{\sqrt{\sum_b N(s, b)}}{1 + N(s, a)}\Big{\}}
+   a_{selected} = \underset{\forall a}{\text{argmax}} \Big{\{}Q(s, a) + c \cdot\boldsymbol{p}_\theta (s, a)\frac{\sqrt{\sum_b N(s, b)}}{1 + N(s, a)}\Big{\}}
    \label{eqn:ucb}
 \end{equation}
 
@@ -96,7 +96,7 @@ The action-values, Q, are calculated as the mean of state-values in the subtree 
 \end{equation} 
 
 \Cref{fig:MCTS}d:
-After a set number of simulations (1600), the MCTS-improved action \textit{p.m.f}s, $\boldsymbol{\pi} = p(\boldsymbol{a} | s_{root}) \propto N^{1/\tau}$, are returned where N is the visit count of each move from the root state and $\tau$ controls the sparseness of the probability mass function $(\{\tau = 0\} \rightarrow argmax\{N(s, a)\})$. For self-play, $\tau = 1$ for the first 30 moves and $\tau \rightarrow 0$ thereafter. For evaluation $\tau \rightarrow 0 \; \forall t$. If $\tau \rightarrow 0$ then $\boldsymbol{\pi}$ becomes one-hot and the loss function of the neural network makes sense as a prediction of a categorical distribution.
+After a set number of simulations (1600), the MCTS-improved action \textit{p.m.f}s, $\boldsymbol{\pi} = p(\boldsymbol{a} | s_{root}) \propto N^{1/\tau}$, are returned where N is the visit count of each move from the root state and $\tau$ controls the sparseness of the probability mass function $(\{\tau = 0\} \rightarrow \text{argmax}\{N(s, a)\})$. For self-play, $\tau = 1$ for the first 30 moves and $\tau \rightarrow 0$ thereafter. For evaluation $\tau \rightarrow 0 \; \forall t$. If $\tau \rightarrow 0$ then $\boldsymbol{\pi}$ becomes one-hot and the loss function of the neural network makes sense as a prediction of a categorical distribution.
 
 \subsection{Policy Iteration}
 

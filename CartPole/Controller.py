@@ -28,9 +28,6 @@ class Controller:
         self.policy_examples_history = []  # history of examples from args.policyItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
 
-        # -------- POLICY STATS ----------
-        self.policy_iters = 0
-
         # ------- CONSTS AFFECTING THE VALUE FUNCTION ----------
         self.max_steps_beyond_done = self.env.max_steps_beyond_done
         self.final_discount = 1.0/20    # we want to reduce the discount factor to 1/20 of the first value by the end
@@ -102,12 +99,14 @@ class Controller:
         """
         # save the initial policy
         self.nnet.save_net_architecture(folder=self.args.checkpoint_folder, filename='checkpoint_' + str(0) + '.pth.tar')
-        for i in range(self.args.policyIters):
+        for policy_iters in range(self.args.policyIters):
+            self.env.increment_handicap(policy_iters)
             policy_examples = deque([], maxlen=self.args.maxlenOfQueue)  # double-ended stack
             policy_examples_to_csv = []
             # ------------------- USE CURRENT POLICY TO GENERATE EXAMPLES ---------------------------
             start = time.time()
-            for eps in range(1, self.args.trainEps+1):
+            trainEps = self.args.initialTrainEps if policy_iters < self.args.unopposedTrains else self.args.trainEps
+            for eps in range(1, trainEps+1):
                 self.mcts = MCTS(self.env, self.nnet, self.args)  # reset search tree
                 example_episode, observations, policy_predictions = self.execute_episode()
 
@@ -115,8 +114,8 @@ class Controller:
                 policy_examples.extend(example_episode)  # add recent episodes to the right
                 policy_examples_to_csv = self.update_csv_examples(policy_examples_to_csv, example_episode,
                                                                   policy_predictions, observations)
-                Utils.update_progress("TRAINING EPISODES ITER: "+str(i)+" ep"+str(eps),
-                                      eps/self.args.trainEps,
+                Utils.update_progress("TRAINING EPISODES ITER: "+str(policy_iters)+" ep"+str(eps),
+                                      eps/trainEps,
                                       time.time() - start)
 
             # ----------------- SAVE EXAMPLES TO QUEUE AND CSV (+ tree and render close) -------------------
@@ -125,8 +124,8 @@ class Controller:
                 self.mcts.show_tree()
                 return  # prevents us from overwriting the best model
 
-            np.savez_compressed(r'Data\TrainingData\TrainingExamples'+str(self.policy_iters)+'.npz', *[step[0] for step in policy_examples])  # pickle the state_2d's in a long dict
-            self.save_to_csv('TrainingExamples', policy_examples_to_csv)
+            np.savez_compressed(r'Data\TrainingData\TrainingExamples'+str(policy_iters)+'.npz', *[step[0] for step in policy_examples])  # pickle the state_2d's in a long dict
+            self.save_to_csv('TrainingExamples', policy_examples_to_csv, policy_iters)
             self.policy_examples_history.append(policy_examples)  # list of deques
 
             if len(self.policy_examples_history) > self.args.numItersForTrainExamplesHistory:
@@ -143,18 +142,17 @@ class Controller:
             # ---------- RETRAIN NEURAL NETWORKS AND CHECKPOINT --------------
             # note, this is AlphaZero, therefore always retrain (no evaluation)
             self.nnet.save_net_architecture(folder=self.args.checkpoint_folder,
-                                            filename='checkpoint_' + str(self.policy_iters) + '.pth.tar')
+                                            filename='checkpoint_' + str(policy_iters) + '.pth.tar')
             self.nnet.train_policy(examples=examples_for_training)
-            self.policy_iters += 1
 
-    def save_to_csv(self, file_name, data):
+    def save_to_csv(self, file_name, data, policy_iters):
         # maybe add some unpickling for saving whole examples? or to a different function
         folder = os.path.join('Data', 'TrainingData')
         if not os.path.exists(folder):
             print("Checkpoint Directory does not exist! Making directory {}".format(folder))
             os.mkdir(folder)
 
-        file_path = os.path.join(folder, file_name + str(self.policy_iters))
+        file_path = os.path.join(folder, file_name + str(policy_iters))
         with open(file_path + '.csv', 'w+', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(data)
