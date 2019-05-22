@@ -36,7 +36,7 @@ class CartPoleWrapper(CartPoleEnv):
         self.adversary = adversary  # Enumerate: 0:Adversary, 1:None 2:EveryStepRandom, 3:LargeRandom, 4:Normal
         self.unopposedTrains = unopposedTrains
         self.player_action_space = [1, -1]
-        self.avg_adv_force = 0.04  # Given by equating linear thetadot from a force
+        self.avg_adv_force = 0.05  # Given by equating linear thetadot from a force
 
         self.adv_action_space = [1, -1]  # default is nnet adversary for #0 and #2
         self.handicap = 0
@@ -62,7 +62,7 @@ class CartPoleWrapper(CartPoleEnv):
 
     def increment_handicap(self, iter):
         # note the first 1-0.5**0 = 0 -> add one to it
-        self.handicap = 0 if iter < self.unopposedTrains else self.avg_adv_force * (1-0.5**(iter-self.unopposedTrains+1))  # 0.5 -> (0, 0.5, 0.75...)
+        self.handicap = 0 if iter < self.unopposedTrains else self.avg_adv_force * (1-0.7**(iter-self.unopposedTrains+1))  # 0.5 -> (0, 0.5, 0.75...)
         print(self.handicap)
 
     def step(self, a, agent, next_true_step=False):

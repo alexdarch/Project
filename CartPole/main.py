@@ -7,7 +7,7 @@ from CartPoleWrapper import CartPoleWrapper
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
     'policyIters': 20,  # 8
-    'initialTrainEps': 40,
+    'initialTrainEps': 100,
     'unopposedTrains': 2,         # how many trains do we ignore the adversary for?
     'trainEps': 40,  # 40,
     'numMCTSSims': 20,  # 15/20,

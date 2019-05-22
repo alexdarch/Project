@@ -5,6 +5,7 @@
 \chapter{Results and Discussion}
 
 \section{Training}
+\subsection{MCTS}
 
 \begin{figure}[h]
     \centering
@@ -20,12 +21,71 @@
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{MicroTree.PNG}
-    \caption{A zoomed in view of \cref{fig:tree}. The three colours of each node are based on the value of $U=Q(\boldsymbol{x}, u) + ucb$ as in \cref{equ:IPucb}, the number of state-action visits, $N(\boldsymbol{x}, u)$, and the state-cost, $c$.}
+    \caption{A zoomed in view of \cref{fig:tree}. The three colours of each node are based on the value of $U=Q(\boldsymbol{x}, u) + ucb$ as in \cref{equ:IPucb}, the number of state-action visits, $N(\boldsymbol{x}, u)$, and the state-cost, $c(\boldsymbol{x}_t)$.}
     \label{fig:microtree}
 \end{figure}
 
 \Cref{fig:microtree} shows the max-max nature of the tree search (after negating the action-value for the adversary). also highlights how Nsa is related to $V_pred$ and $U$, with Nsa almost always being the right one.
 
+\subsection{Neural Network Training}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{nnetloss0.PNG}
+    \caption{The losses for both the player and adversary neural networks after one policy iteration.}
+    \label{fig:nnetlosses0}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{nnetloss1.PNG}
+    \caption{The losses for both the player and adversary neural networks after one policy iteration.}
+    \label{fig:nnetlosses0}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{nnetloss2.PNG}
+    \caption{The losses for both the player and adversary neural networks after one policy iteration.}
+    \label{fig:nnetlosses0}
+\end{figure}
+
+$c_{pareto}$ was set to 0.1. The minimum loss for the action value function is $-1bit \cdot c_{pareto}$. The neural networks get very close to this. Weirdly, the adversary losses are lower than the player losses on the first 2 policy iterations (which shouldn't happen as the adversary has no effect for these. After 10 iterations the action losses decrease to 0.1.
+
+After the second iteration, the action losses do not decrease much, suggesting that they have already been trained (possible over-fitting)
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{MicroTree.PNG}
+    \caption{A zoomed in view of \cref{fig:tree}. The three colours of each node are based on the value of $U=Q(\boldsymbol{x}, u) + ucb$ as in \cref{equ:IPucb}, the number of state-action visits, $N(\boldsymbol{x}, u)$, and the state-cost, $c(\boldsymbol{x}_t)$.}
+    \label{fig:microtree}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{MicroTree.PNG}
+    \caption{A zoomed in view of \cref{fig:tree}. The three colours of each node are based on the value of $U=Q(\boldsymbol{x}, u) + ucb$ as in \cref{equ:IPucb}, the number of state-action visits, $N(\boldsymbol{x}, u)$, and the state-cost, $c(\boldsymbol{x}_t)$.}
+    \label{fig:microtree}
+\end{figure}
+
+\subsection{Action and State Values}
+
+\begin{table}
+\centering
+\begin{tabular}{c | c | c | c}
+    arg1 & arg2 & arg3 & arg4 \\
+    \hline
+    param1 & param2 & param3 & param4
+\end{tabular}
+\label{table:trainingparams}
+\caption{Training parameters used}
+\end{table}
+
+show the evolution of action training, and how they start out biased due to the training with f2=0 and then gets less and less biased..
+
+talk about general trends and what the optimal control policy is likely to be
+
+how did things being discrete affect things? what might improve these results? Do average/smoothed one?
 
 \section{Performance}
 

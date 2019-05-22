@@ -141,9 +141,10 @@ class Controller:
 
             # ---------- RETRAIN NEURAL NETWORKS AND CHECKPOINT --------------
             # note, this is AlphaZero, therefore always retrain (no evaluation)
+            self.nnet.train_policy(examples=examples_for_training)
             self.nnet.save_net_architecture(folder=self.args.checkpoint_folder,
                                             filename='checkpoint_' + str(policy_iters) + '.pth.tar')
-            self.nnet.train_policy(examples=examples_for_training)
+
 
     def save_to_csv(self, file_name, data, policy_iters):
         # maybe add some unpickling for saving whole examples? or to a different function
