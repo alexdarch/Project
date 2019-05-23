@@ -129,8 +129,6 @@ class Controller:
             self.policy_examples_history.append(policy_examples)  # list of deques
 
             if len(self.policy_examples_history) > self.args.numItersForTrainExamplesHistory:
-                # print("len(trainExamplesHistory) =", len(self.policy_examples_history),
-                #     " => remove the oldest trainExamples\n")
                 self.policy_examples_history.pop(0)
 
             # ------------- ONLY TRAIN ON THE LAST N ITERATIONS --------------
@@ -144,6 +142,10 @@ class Controller:
             self.nnet.train_policy(examples=examples_for_training)
             self.nnet.save_net_architecture(folder=self.args.checkpoint_folder,
                                             filename='checkpoint_' + str(policy_iters) + '.pth.tar')
+
+            if policy_iters == self.args.unopposedTrains-1:
+                    print('Clearing Examples History')
+                    self.policy_examples_history = []   # don't train the adversary on episodes where it wasn't active
 
 
     def save_to_csv(self, file_name, data, policy_iters):

@@ -63,7 +63,7 @@ class CartPoleWrapper(CartPoleEnv):
     def increment_handicap(self, iter):
         # note the first 1-0.5**0 = 0 -> add one to it
         self.handicap = 0 if iter < self.unopposedTrains else self.avg_adv_force * (1-0.7**(iter-self.unopposedTrains+1))  # 0.5 -> (0, 0.5, 0.75...)
-        print(self.handicap)
+        print('Handicap: ', self.handicap)
 
     def step(self, a, agent, next_true_step=False):
         assert a in range(self.get_action_size(agent)), "%r (%s) invalid action" % (a,  type(a))

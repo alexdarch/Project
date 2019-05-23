@@ -295,8 +295,8 @@ Action selection moving down the tree was modified to reflect the asymmetry of t
 {
 \newcommand{\bx}{\boldsymbol{x}}
 \begin{align}
-   u^*_{player} & = \underset{u \; \in \; \mathcal{U}_{player}}{\text{argmax}} \Big{\{} Q(\bx, u) + c \cdot\boldsymbol{p}_\theta (\bx, u)\frac{\sqrt{\sum_b N(\bx, b)}}{1 + N(\bx, b)}\Big{\}} =  \underset{u \; \in \; \mathcal{U}_{player}}{\text{argmax}} \; U_{player}(\bx, u) \\
-   u^*_{adv} & = \underset{u \; \in \; \mathcal{U}_{adv}}{\text{argmax}} \Big{\{} -Q(\bx, u) + c \cdot\boldsymbol{p}_\theta (\bx, u)\frac{\sqrt{\sum_b N(\bx, b)}}{1 + N(\bx, b)}\Big{\}} = \underset{u \; \in \; \mathcal{U}_{adv}}{\text{argmax}} \; U_{adv}(\bx, u)
+   u^*_{player} & = \underset{u \; \in \; \mathcal{U}_{player}}{\text{argmax}} \Big{\{} Q(\bx, u) + c_{explore} \cdot\boldsymbol{p}_\theta (\bx, u)\frac{\sqrt{\sum_b N(\bx, b)}}{1 + N(\bx, b)}\Big{\}} =  \underset{u \; \in \; \mathcal{U}_{player}}{\text{argmax}} \; U_{player}(\bx, u) \\
+   u^*_{adv} & = \underset{u \; \in \; \mathcal{U}_{adv}}{\text{argmax}} \Big{\{} -Q(\bx, u) + c_{explore} \cdot\boldsymbol{p}_\theta (\bx, u)\frac{\sqrt{\sum_b N(\bx, b)}}{1 + N(\bx, b)}\Big{\}} = \underset{u \; \in \; \mathcal{U}_{adv}}{\text{argmax}} \; U_{adv}(\bx, u)
    \label{eqn:IPucb}
 \end{align}
 }

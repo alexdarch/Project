@@ -1,0 +1,114 @@
+\documentclass[../main.tex]{subfiles}
+\begin{document}
+\graphicspath{{Results/Training1/}{../Results/Training1/}{../Results/}{Results/}}
+\onlyinsubfile{\tableofcontents{}}
+\chapter{Results and Discussion}
+
+\section{Training}
+
+In this section how the training of the player and adversary will be investigated, using the theory discussed thus far. It is expected that results will be variable due to the minimal amount of data that can be generated with due to computational limitations, however, performance is expected to improve overall for both the adversary and the player. These results are then interpreted with a discussion of their merits and possible explanations. The results are then checked against a base-line neural network that takes the true state, $\boldsymbol{x}$, as input. It is expected that these will have comparable performance. For the training runs shown, the parameters used are given in table \ref{table:trainingparams}.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{c | c | c | c}
+        Unopposed Episodes/iter & Opposed Episodes/iter & nMCTS Simulations & $F_2^{(max)}$  \\
+        \hline
+        100 & 40 & 15 & 0.05 \vspace{0.5cm}\\
+        $\boldsymbol{x}^{(2D)}$ bins & $\boldsymbol{x}^{(2D)}$ discount & Learning Rate & Mini-Batch Size \\
+        \hline
+        50 & 0.5 & 0.0005 & 64
+    \end{tabular}
+    \label{table:trainingparams}
+    \caption{Training parameters used}
+    \end{table}
+
+\subsection{MCTS}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{Tree.PNG}
+    \caption{An example MCTS tree structure lasting 33 steps with 15 MCTS simulations per step. Both agents are untrained. The adversary has and average power of 5\% of the player ($F_2 = 0.05F_1$). Lighter (yellow) colours represent ``better'' states.}
+    \label{fig:tree}
+\end{figure}
+
+\Cref{fig:tree} shows the structure of a typical tree search when relying solely on the tree search. This is significantly better than with no tree-search, which typically achieves an episode length of 7.
+
+\texttt{Do graph of MCTS sims vs episode length with no training?}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{MicroTree.PNG}
+    \caption{A zoomed in view of \cref{fig:tree}. The three colours of each node are based on the value of $U=Q(\boldsymbol{x}, u) + ucb$ as in \cref{equ:IPucb}, the number of state-action visits, $N(\boldsymbol{x}, u)$, and the state-cost, $c(\boldsymbol{x}_t)$. The red nodes follow the true trajectory. Ns ($N(\boldsymbol{x})$) is the total number of state visits, this does not equal the action-state visit count, Nsa ($N(\boldsymbol{x}, u)$), these differ along the true trajectory due to the re-running of the MCTS simulation.}
+    \label{fig:microtree}
+\end{figure}
+
+\Cref{fig:microtree} shows the sequential maximisation that occurs during the tree search. Note that the action-value, $Q(\boldsymbol{x}_t, u_t)$, for the adversary is negated and $Q$ is between -1 and 0 for the player. $N(\boldsymbol{x}, u)$ is correlated with the predicted value, $V_{pred}$, and $U$, which suggests that the neural network and tree search are working as expected. At the first branching in \cref{fig:microtree} the $ucb$ is 17\% of $U$. Intuitively, this is within the correct range as a larger exploration term would cause the MCTS to branch more, diminishing the computational benefit of the structured search, whereas a smaller exploration term inhibits learning. To get this ratio, a value of 1 was chosen for $c_{explore}$. The action-state visit counts are 22 and 17, which are markedly higher than the number of simulations per step (10 in this example), suggesting the MCTS is performing a highly structured search. In this example, the visit counts reflect the similar $Q$ values of each branch.
+
+\subsection{Neural Network Training}
+
+In order to get similar magnitudes of action and value losses ($\mathcal{L}_{action} \approx \mathcal{L}_{value}$) a constant, $c_{pareto}$, was chosen. The minimum entropy for two possible actions is 1 bit and since the action loss is the negative log likelihood of a categorical distribution, the minimum loss is -1. The value losses are calculated using the MSE, which is positive, and has an average value of $\approx 0.1$, therefore  $c_{pareto}$ was set to 0.1. 
+
+How much to train the player before introducing an adversary and how strong to make the adversary is difficult to balance. Typically, either the adversary is too strong and the episode is over within 20 time steps, or the adversary learns to simply push in one direction only. \Cref{fig:actioncorr} shows this transition occuring over just one episode. Iteration 1 has MCTS predictions grouped as either left or right
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{bias.PNG}
+    \caption{The change in MCTS predicted actions (right) and policy predicted actions (left) between iteration 1 (top) and iteration 2 (bottom). The points represent sequential action pairs, $(u_{t-1}, u_t)$, and show how correlated an adversary action is with the previous agent's (player) action.}
+    \label{fig:actioncorr}
+\end{figure}
+
+Over the first few training iterations, the loss decreases steadily \cref{fig:nnetlosses0,fig:nnetlosses1,fig:nnetlosses2,fig:nnetlosses10}.
+
+After the second iteration, the action losses do not decrease much, suggesting that they have already been trained (possible over-fitting)
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{value_vs_step.PNG}
+    \caption{Value vs Step.}
+    \label{fig:value}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{action_vs_step2.PNG}
+    \caption{Action vs Step}
+    \label{fig:action2}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{action_vs_step4.PNG}
+    \caption{Action vs Step}
+    \label{fig:action4}
+\end{figure}
+
+\subsection{Action and State Values}
+
+
+
+show the evolution of action training, and how they start out biased due to the training with f2=0 and then gets less and less biased..
+
+talk about general trends and what the optimal control policy is likely to be
+
+how did things being discrete affect things? what might improve these results? Do average/smoothed one?
+
+\section{Performance}
+
+\section{Performance Without an Adversary}
+
+
+\section{Performance Against a Random Opponent}
+Selected Distributions
+
+do against a constant random opponent
+do against say off for 30 steps then hit with a +- 5
+do against a multinomial distribution with expected value of 0.05?
+do against
+
+\section{Performance Against a Trained Adversary}
+
+Compare when trained n the adversay against the random opponents? and also against no adversary? Is it robust?
+
+\onlyinsubfile{\subfile{Appendix.tex}}
+
+\end{document}

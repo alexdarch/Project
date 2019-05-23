@@ -10,7 +10,7 @@ import torch.optim as optim
 
 pargs = Utils({
     # ---------- Policy args ------------
-    'lr': 0.0002,
+    'lr': 0.0005,
     'dropout': 0.3,
     'epochs': 2,
     'batch_size': 64,
@@ -18,84 +18,6 @@ pargs = Utils({
     'num_channels': 256,  # 512
     'pareto': 0.1  # multiply action loss
 })
-
-
-class ResNetworkArchitecture(nn.Module):
-    """
-    This class specifies the base NeuralNet class. To define your own neural
-    network, subclass this class and implement the functions below. The neural
-    network does not consider the current agent, and instead only deals with
-    the canonical form of the board.
-    """
-
-    def __init__(self, policy_env):
-
-        self.x_size, self.y_size = policy_env.get_state_2d_size()  # x = pos, y = ang
-        self.action_size = policy_env.get_action_size(0)  # only two calls here (we only need the agent space =0)
-
-        super(ResNetworkArchitecture, self).__init__()
-        print("Res Network Architecture")
-
-        self.kernel_size = 3
-        self.conv_layer1 = self.conv_layer(1, pargs.num_channels, pad=1)
-        self.conv_layer2 = self.conv_layer(pargs.num_channels, pargs.num_channels, pad=1)
-        self.conv_layer3 = self.conv_layer(pargs.num_channels, pargs.num_channels, pad=0)
-        self.conv_layer4 = self.conv_layer(pargs.num_channels, pargs.num_channels, pad=0)
-
-        # <editor-fold desc="Linear Layers with dropout and batch normalisation">
-        self.layer1_output_size = 512
-        self.layer2_output_size = int(self.layer1_output_size / 2)
-        self.linear_layer1 = nn.Sequential(
-            nn.Linear(pargs.num_channels * (self.x_size - 4) * (self.x_size - 4), self.layer1_output_size),
-            nn.BatchNorm1d(self.layer1_output_size),
-            nn.ReLU(),
-            nn.Dropout(p=pargs.dropout)
-        )
-        self.linear_layer2 = nn.Sequential(
-            nn.Linear(self.layer1_output_size, self.layer2_output_size),
-            nn.BatchNorm1d(self.layer2_output_size),
-            nn.ReLU(),
-            nn.Dropout(p=pargs.dropout)
-        )
-        # </editor-fold>
-
-        self.action_layer = nn.Linear(self.layer2_output_size, self.action_size)
-
-        # final layers
-        self.value_layer = nn.Linear(self.layer2_output_size, 1)
-
-    def forward(self, s):
-        s = s.view(-1, 1, self.x_size, self.y_size)      # converts [1, 25, 25] -> [1, 1, 25, 25]
-        s = self.conv_layer1(s)                          # [1, 1, 25, 25] -> [1, 256, 25, 25]
-        s = self.conv_layer2(s)                          # [1, 256, 25, 25] -> [1, 256, 25, 25]
-        s = self.conv_layer3(s)                          # [1, 256, 25, 25] -> [1, 256, 23, 23]
-        s = self.conv_layer4(s)                          # [1, 256, 23, 23] -> [1, 256, 21, 21]
-
-        # note, -1 is inferred from the other dimensions, therefore, since we are using only 1 image (not the 17:
-        # one for each piece that alpha zero uses) we can infer the other dimension by setting arg1 = 1
-        # note that before, this was num_channels*(x_size-4)*(y_size-4)
-        s = s.view(s.size(0), -1)  # [1, 256, 21, 21] -> [1, 112896]
-
-        # Finished Convolution, now onto dropout and linear layers
-        s = self.linear_layer1(s)
-        s = self.linear_layer2(s)
-
-        pi = self.action_layer(s)
-        v = self.value_layer(s)     # batch_size x 1
-
-        return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
-
-    def conv_layer(self, input_size, output_size, pad, pool_kernel=None):
-        layers = [
-            nn.Conv2d(input_size, output_size, kernel_size=self.kernel_size, stride=1, padding=pad),
-            nn.BatchNorm2d(output_size),
-            nn.ReLU()
-        ]
-        if pool_kernel is not None:
-            layers.append(nn.MaxPool2d(kernel_size=pool_kernel))
-
-        return nn.Sequential(*layers)
-
 
 class ConvNetworkArchitecture(nn.Module):
     def __init__(self, policy_env):
@@ -128,7 +50,6 @@ class ConvNetworkArchitecture(nn.Module):
         v = self.value_layer(s)
 
         return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
-
 
 class StatePlayerNetworkArchitecture(torch.nn.Module):
     def __init__(self, policy_env):
@@ -176,15 +97,45 @@ class StateAdversaryNetworkArchitecture(torch.nn.Module):
         return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
 
 
+class StateAgentNetworkArchitecture(torch.nn.Module):
+    def __init__(self, policy_env):
+        super().__init__()
+        print("Agent Network Architecture")
+
+        self.action_size = policy_env.get_action_size(0)  # o
+        self.linear1 = torch.nn.Linear(4, 200)
+        self.fc_bn1 = nn.BatchNorm1d(200)
+
+        self.linear2 = torch.nn.Linear(200, 400)
+        self.fc_bn2 = nn.BatchNorm1d(400)
+
+        self.linear3 = torch.nn.Linear(400, 200)
+        self.fc_bn3 = nn.BatchNorm1d(200)
+
+        self.value_layer = nn.Linear(200, 1)
+        self.action_layer = nn.Linear(200, self.action_size)
+
+    def forward(self, x):
+        # takes a vector [action, obs0, obs1, obs2, obs3] and spits out a predicted state
+        s = x.view(-1, 4)  # converts [1, 25, 25] -> [1, 1, 25, 25]
+        s = F.dropout(F.relu(self.fc_bn1(self.linear1(s))), p=pargs.dropout, training=self.training)  # batch_size x 512
+        s = F.dropout(F.relu(self.fc_bn2(self.linear2(s))), p=pargs.dropout, training=self.training)  # batch_size x 512
+        s = F.dropout(F.relu(self.fc_bn3(self.linear3(s))), p=pargs.dropout, training=self.training)  # batch_size x 512
+        pi = self.action_layer(s)
+        v = self.value_layer(s)  # batch_size x 1
+        return F.softmax(pi, dim=1), -1.0*torch.sigmoid(v)
+
+
 class NeuralNet:
     trains = 0  # count the number of times train_policy is called so we can write csv's
 
     def __init__(self, policy_env):
 
-        self.player_architecture = StatePlayerNetworkArchitecture(policy_env)
-        self.adversary_architecture = StateAdversaryNetworkArchitecture(policy_env)
+        self.player_architecture = StateAgentNetworkArchitecture(policy_env)
+        self.adversary_architecture = StateAgentNetworkArchitecture(policy_env)
         self.x_size, self.y_size = policy_env.get_state_2d_size()
         self.action_size = policy_env.get_action_size(0)
+        self.unopposedTrains = policy_env.unopposedTrains
 
         if pargs.cuda:
             self.player_architecture.cuda()
@@ -192,10 +143,15 @@ class NeuralNet:
 
     def train_policy(self, examples):
         examples = np.array(examples)
-        architectures = [self.player_architecture, self.adversary_architecture]
-        optimizers = [optim.Adam(self.player_architecture.parameters(), lr=pargs.lr),
-                      optim.Adam(self.adversary_architecture.parameters(), lr=pargs.lr)]
+        if NeuralNet.trains < self.unopposedTrains:
+            architectures = [self.player_architecture]
+            optimizers = [optim.Adam(self.player_architecture.parameters(), lr=pargs.lr)]
+        else:
+            architectures = [self.player_architecture, self.adversary_architecture]
+            optimizers = [optim.Adam(self.player_architecture.parameters(), lr=pargs.lr),
+                          optim.Adam(self.adversary_architecture.parameters(), lr=pargs.lr)]
         agent_losses = [[], [], [], [], [], []]
+
         for agent in range(len(architectures)):
             agent_examples = examples[examples[:, 2] == agent, :]
             architectures[agent].train()    # set module in training mode
