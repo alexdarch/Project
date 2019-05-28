@@ -4,7 +4,7 @@
 \section{Inverted Pendulum Dynamics Derivation}
 \label{appendix:invpen}
 
-We can find the state space equations for the Inverted Pendulum using d'Alembert forces. Firstly we define the distance and velocity vectors to the important points:
+The state space equations for the Inverted Pendulum can be found using d'Alembert forces. Define the distance and velocity vectors to the important points:
 
 \begin{align*}
     & \boldsymbol{r}_P = x \boldsymbol{i} \\
@@ -27,7 +27,7 @@ Moment of momentum about P, $\boldsymbol{h}_P = \boldsymbol{r}_{B_1/P} \times m 
 \therefore \boldsymbol{\dot{h}}_P & = -mL(L\ddot{\theta} + \ddot{x}cos\theta - \dot{x}\dot{\theta}sin\theta) \boldsymbol{k}
 \end{align*}
 
-We can balance moments using $\boldsymbol{\dot{h}}_P + \boldsymbol{\dot{r}}_P \times \boldsymbol{\rho} = \boldsymbol{Q}_{e}$ and $ \boldsymbol{Q}_{e} = \boldsymbol{r}_{B_1/P} \times -mg\boldsymbol{j} + \boldsymbol{r}_{B_2/P} \times F_2 \boldsymbol{i}$:
+Balance moments using $\boldsymbol{\dot{h}}_P + \boldsymbol{\dot{r}}_P \times \boldsymbol{\rho} = \boldsymbol{Q}_{e}$ and $ \boldsymbol{Q}_{e} = \boldsymbol{r}_{B_1/P} \times -mg\boldsymbol{j} + \boldsymbol{r}_{B_2/P} \times F_2 \boldsymbol{i}$:
 \begin{equation*}
 \boldsymbol{\dot{h}}_P + \boldsymbol{\dot{r}}_P \times \boldsymbol{\rho} = 
 \begin{bmatrix} 0 \\ 0 \\ -m L (\ddot{x} cos\theta + L\ddot{\theta}) \end{bmatrix} = \begin{bmatrix} 0 \\ 0 \\ -L(m g sin\theta + 2 F_2 cos \theta) \end{bmatrix} = \boldsymbol{Q}_e
@@ -40,15 +40,14 @@ And also balance linear momentum using $\boldsymbol{F}_e = \dot{\boldsymbol{\rho
     = \begin{bmatrix} F_1 + F_2 \\ R-(M+m)g \\ 0 \end{bmatrix} = \boldsymbol{F}_e
 \end{equation*}
 
-Finally we can write the system dynamics in terms of $\ddot{\theta}$ and $\ddot{x}$:
+Finally write the system dynamics in terms of $\ddot{\theta}$ and $\ddot{x}$:
 
 \begin{align}
 \ddot{\theta}\big(M+m sin^2\theta \big)L & = \bigg(\frac{2M+m}{m}F_2-F_1\bigg)cos\theta + g(M+m)sin\theta - mL\dot{\theta}^2 sin\theta cos\theta\\
 \ddot{x}(M+m sin^2\theta) & = F_1 - F_2cos(2\theta)+ m sin\theta(L\dot{\theta}^2-g cos\theta)
 \end{align}
 
-
-Simplifying this for our problem by substituting in constants, we can write the full state space equation:
+Simplifying by substituting in constants, the full state space equation are:
 
 \begin{equation}
 \begin{bmatrix} \dot{x} \\ \ddot{x} \\ \dot{\theta} \\ \ddot{\theta} \end{bmatrix}  =
@@ -56,7 +55,7 @@ Simplifying this for our problem by substituting in constants, we can write the 
 \begin{bmatrix} f_1(\boldsymbol{x}, F_1, F_2) \\ f_2(\boldsymbol{x}, F_1, F_2) \\ f_3(\boldsymbol{x}, F_1, F_2) \\ f_4(\boldsymbol{x}, F_1, F_2) \end{bmatrix}
 \end{equation}
 
-Using Lyapunov's indirect method, we can write the linearised equations about the equilibrium, $\boldsymbol{x}_e = [x_e, \dot{x}_e, \theta_e, \dot{\theta}_e]^T = [0, 0, 0, 0]^T$, as:
+Using Lyapunov's indirect method, the linearised equations about the equilibrium, $\boldsymbol{x}_e = [x_e, \dot{x}_e, \theta_e, \dot{\theta}_e]^T = [0, 0, 0, 0]^T$, are:
 \begin{equation}
     \newcommand{\pf}[2]{\frac{\partial f_#1}{\partial #2}\big{|}_{\boldsymbol{x}_e}}
 \begin{bmatrix} \delta \dot{x} \\ \delta \ddot{x} \\ \delta \dot{\theta} \\ \delta \ddot{\theta} \end{bmatrix} 
@@ -162,7 +161,42 @@ Kalman filtering can be used to find an optimal estimate $\hat{\bx}_n = K[\bx_n 
 
 It is obvious from this that as $\sigma_v^2 \rightarrow 0, \; \sigma_{n+1}^2 \rightarrow 0$. Furthermore, if the spectral radius, $\rho \left(A^2(1 - \frac{C^2 A^2\sigma_n^2}{\sigma_v^2 + C^2 A^2 \sigma_n^2}) \right) < 1$, then the mean squared error from quantisation will reduce to zero. Since $0 < ||\frac{C^2 A^2\sigma_n^2}{\sigma_v^2 + C^2 A^2 \sigma_n^2}||^2_2 < 1$ if $\sigma_v^2 > 0$, a sufficient condition is that $A^2 \leq 1 \implies \rho(A) \leq 1$.
 
-For the multivariate case, it can similarly be shown (by Gelfand's Theorem, $\rho(M_1 ... M_n) \leq \rho(M_1)...\rho(M_n)$) that $\rho\left(\bar{\Sigma}_{n+1}C^T (\sigma_v^2 I + C \bar{\Sigma}_{n+1} C^T)^{-1} C)\right) < 1$, therefore a sufficient condition for the decay of the covariance is $\rho(A \Sigma_n A^T) \leq \rho(\Sigma_n) \implies \rho(A A^T) \leq 1$. For the linearised dynamics derived in \cref{equ:linearisedA} the eigenvalues, $\lambda$ are given by $\lambda^2(1-\lambda)^2 = 0 \implies \rho(AA^T) \leq 1$. Therefore, the covariance decays to zero in the linearised multivariate case and the 2D state becomes a lossless estimate of the state.
+Using Gelfand's Theorem, $\rho(M_1 ... M_n) \leq \rho(M_1)...\rho(M_n)$, and the eigenvalue identity, $(M+cI)v = (c+\lambda)v$. The MSE of the multivariate case can be reduced to:
+
+\begin{align}
+1\;  > \; & \rho\left((I - \bar{\Sigma}_{n+1}C^T (\sigma_v^2 I + C \bar{\Sigma}_{n+1} C^T)^{-1} C)\bar{\Sigma}_{n+1}\right) \\
+> \; & \rho(\bar{\Sigma}_{n+1})\left[ 1 - \rho(\bar{\Sigma}_{n+1}C^T (\sigma_v^2 I + C \bar{\Sigma}_{n+1} C^T)^{-1} C)  \right] 
+\end{align}
+
+Therefore, if $\rho\left(\bar{\Sigma}_{n+1}C^T (\sigma_v^2 I + C \bar{\Sigma}_{n+1} C^T)^{-1} C)\right)$ is less than one, and $\rho(\bar{\Sigma}_{n+1}) < 1$, then this is true. This is equivalent to showing that if $0 < \kappa(\Sigma_{n})\kappa(A)^2 \kappa(CC^T) \leq 1$ and $\rho(AA^T) < 1$, where $\kappa(\cdot)$ denotes the condition number, then the MSE will decay:
+
+\begin{align*}
+  \rho\left(\bar{\Sigma}_{n+1}C^T (\sigma_v^2 I + C \bar{\Sigma}_{n+1} C^T)^{-1} C)\right) 
+    \leq \; & \rho(\bar{\Sigma}_{n+1})\rho(CC^T) \rho((\sigma_v^2 I + C \bar{\Sigma}_{n+1} C^T)^{-1}) \\
+    \leq \; & \rho(\bar{\Sigma}_{n+1})\rho(C C^T) \frac{1}{|\lambda_{min}(\sigma_v^2 I + C \bar{\Sigma}_{n+1} C^T)|} \\
+    = \; & \rho(\bar{\Sigma}_{n+1})\rho(CC^T) \frac{1}{|\lambda_{min}(C \bar{\Sigma}_{n+1} C^T)| + \sigma_v^2} \\
+    < \; & \frac{|\lambda_{max}(\bar{\Sigma}_{n+1})\lambda_{max}(CC^T)|}{|\lambda_{min}(C \bar{\Sigma}_{n+1} C^T)|} \\
+    < \; & \frac{|\lambda_{max}(\bar{\Sigma}_{n+1})\lambda_{max}(CC^T)|}{|\lambda_{min}(\bar{\Sigma}_{n+1}CC^T)|} \\
+    < \; & \frac{|\lambda_{max}(\bar{\Sigma}_{n+1})\lambda_{max}(CC^T)|}{|\lambda_{min}(\bar{\Sigma}_{n+1})\lambda_{min}(CC^T)|} \\
+    = \; &  |\kappa(\Sigma_{n})|\kappa(A)^2 \kappa(CC^T)
+\end{align*}
+
+where the above uses the results $\lambda_i(X\Sigma X^*) = \lambda_i(\Sigma X^*X)$, where $\Sigma$ is symmetric (this equality also holds for spectral radii) and $\lambda_{min}(\bar{\Sigma}_{n+1} C C^T) > \lambda_{min}(\bar{\Sigma}_{n+1})\lambda_{min}(C C^T)$. Note that $\kappa(\Sigma_n)=1$. Therefore sufficient conditions for the decay of the covariance are:
+\begin{align}
+    (1)& \hspace{1cm} \rho(AA^T) \leq 1 \implies |\lambda_{max}(AA^T)| \leq 1 \\
+    (2)& \hspace{1cm} \kappa(A)^2 \leq 1 \implies |\lambda_{min}(A)| = |\lambda_{max}(A)| \\
+    (3)& \hspace{1cm} \kappa(CC^T) \leq 1
+\end{align}
+
+For the linearised dynamics derived in \cref{equ:linearisedA} the eigenvalues of $AA^T$, $\lambda$, are given by $\lambda^2(1-\lambda)^2 = 0$, and the eigenvalues of A are $\lambda= (0, \,0, \; \pm\sqrt{\frac{(m+M)}{ML}g})$. Therefore (1) and (2) are true.
+
+Therefore, the covariance decays to zero if $\rho(CC^T) \leq 1$ in the linearised multivariate case and the 2D state becomes a lossless estimate of the state. Given that C is a 2x4 projection matrix of the form 
+\begin{equation}
+C = \begin{bmatrix} c_{11} & 0 & 0 & 0 \\ 0 & 0 & c_{23} & 0 \end{bmatrix} \implies CC^T = \begin{bmatrix} c_{11}^2 & 0 \\ 0 & c_{23}^2 \end{bmatrix}
+\end{equation}
+
+By the choice of $\boldsymbol{x}^{(2D)}$ as square, $c_{11} = c_{23}$. By the same logic as above, $\kappa(CC^T) = 1$.
+
 
 The rate of decay for the univariate case can be determined with a first order approximation about $\sigma_v^2 = 0$:
 
@@ -172,39 +206,35 @@ The rate of decay for the univariate case can be determined with a first order a
     &= \frac{\delta \sigma_v^2}{(AC\sigma_n)^2}
 \end{align}
 
-As shown above, the mean square error decays with the square of the bin-size. Similarly, linearising about $\sigma_n^2 \approx 0$ gives $\sigma_{n+1}^2 = A^2$ for the linear case, which is constant.... Need to go to second order...
-
 \section{Neural Network Losses}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.9\textwidth]{nnetloss0.PNG}
+    \includegraphics[width=0.9\textwidth]{Training1D/nnetloss0.PNG}
     \caption{The losses for both the player and adversary neural networks after one set of training examples.}
     \label{fig:nnetlosses0}
 \end{figure}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.9\textwidth]{nnetloss1.PNG}
+    \includegraphics[width=0.9\textwidth]{Training1D/nnetloss1.PNG}
     \caption{The losses for both the player and adversary neural networks after two sets of training examples.}
     \label{fig:nnetlosses1}
 \end{figure}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.9\textwidth]{nnetloss2.PNG}
+    \includegraphics[width=0.9\textwidth]{Training1D/nnetloss2.PNG}
     \caption{The losses for both the player and adversary neural networks after three sets of training examples.}
     \label{fig:nnetlosses2}
 \end{figure}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.9\textwidth]{nnetloss10.PNG}
+    \includegraphics[width=0.9\textwidth]{Training1D/nnetloss10.PNG}
     \caption{The losses for both the player and adversary neural networks after ten sets of training examples.}
     \label{fig:nnetlosses10}
 \end{figure}
-
-\section{Network Biases}
 
 } % end of bx, bu definitions
 \onlyinsubfile{\subfile{Bibliography.tex}}

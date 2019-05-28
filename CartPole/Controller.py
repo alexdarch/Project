@@ -1,18 +1,10 @@
 from MCTS import MCTS
 import numpy as np
 from collections import deque
-from utils import *
 import time, csv, os
 from random import shuffle
-from copy import deepcopy
-
 from utils import *
 # from memory_profiler import profile
-# from collections import deque
-# import matplotlib.pyplot as plt
-
-# from pickle import Pickler, Unpickler
-
 
 class Controller:
     """

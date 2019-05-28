@@ -28,24 +28,28 @@ class ConvNetworkArchitecture(nn.Module):
         super(ConvNetworkArchitecture, self).__init__()
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 64, kernel_size=5, stride=1, padding=2),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         self.layer2 = nn.Sequential(
-            nn.Conv2d(64, 256, kernel_size=3, stride=1, padding=2),
+            nn.Conv2d(64, 256, kernel_size=5, stride=1, padding=2),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         self.drop_out = nn.Dropout()
-        self.fc1 = nn.Linear(7 * 7 * 256, 1000)
-        self.action_layer = nn.Linear(1000, self.action_size)
-        self.value_layer = nn.Linear(1000, 1)
+        self.fc1 = nn.Linear(10 * 10 * 256, 1600)
+        self.fc_bn1 = nn.BatchNorm1d(1600)
+        self.action_layer = nn.Linear(1600, self.action_size)
+        self.value_layer = nn.Linear(1600, 1)
 
     def forward(self, x):
-        s = x.view(-1, 1, self.x_size, self.y_size)  # converts [1, 25, 25] -> [1, 1, 25, 25]
-        s = self.layer1(s)     # [1, 1, 25, 25] -> [1, 64, 12, 12]
-        s = self.layer2(s)     # [1, 64, 12, 12] -> [1, 256, 7, 7]
-        s = s.reshape(s.size(0), -1)  # [1, 256, 7, 7] -> [1, 12544]
-        s = self.drop_out(s)   # [1, 12544] -> [1, 12544]
-        s = self.fc1(s)        # [1, 12544] -> [1, 1000]
+        s = x.view(-1, 1, self.x_size, self.y_size)  # converts [1, 40, 40] -> [1, 1, 40, 40]
+        s = self.layer1(s)     # [1, 1, 40, 40] -> [1, 64, 20, 20]
+        s = self.layer2(s)     # [1, 64, 20, 20] -> [1, 256, 10, 10]
+        s = s.reshape(s.size(0), -1)  # [1, 256, 10, 10] -> [1, 25600]
+        s = self.drop_out(s)   # [1, 25600] -> [1, 25600]
+        s = F.dropout(F.relu(self.fc_bn1(self.fc1(s))), p=pargs.dropout, training=self.training)  # [1, 25600] -> [1, 1600]
+
         pi = self.action_layer(s)  # batch_size x action_size
         v = self.value_layer(s)
 
@@ -131,8 +135,8 @@ class NeuralNet:
 
     def __init__(self, policy_env):
 
-        self.player_architecture = StateAgentNetworkArchitecture(policy_env)
-        self.adversary_architecture = StateAgentNetworkArchitecture(policy_env)
+        self.player_architecture = StateAgentNetworkArchitecture(policy_env)  # ConvNetworkArchitecture(policy_env)  #
+        self.adversary_architecture = StateAgentNetworkArchitecture(policy_env)  # ConvNetworkArchitecture(policy_env) #
         self.x_size, self.y_size = policy_env.get_state_2d_size()
         self.action_size = policy_env.get_action_size(0)
         self.unopposedTrains = policy_env.unopposedTrains

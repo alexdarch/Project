@@ -5,7 +5,9 @@
 \usepackage[english]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
+\usepackage{float} % allows [H] specifier for figs
 \usepackage{graphicx}
+\usepackage{subcaption}
 \graphicspath{{Figures/}{../Figures/}{Results/}{../Results/}} 
 \usepackage{cleveref}
 \usepackage{wrapfig}
@@ -13,7 +15,6 @@
 \usepackage{pdfpages}
 \usepackage{multirow}
 \usepackage[colorinlistoftodos]{todonotes}
-\usepackage{float}
 \usepackage{amssymb} % for \therefore
 \usepackage{titlesec}
 \usepackage{subfiles}
@@ -56,7 +57,7 @@
 
 \subfile{./tex/Introduction.tex}
 \subfile{./tex/TheoryAndMethods.tex}
-\subfile{./tex/ResultsAndDiscussion.}
+\subfile{./tex/ResultsAndDiscussion.tex}
 
 \clearpage
 \subfile{./tex/Bibliography.tex}

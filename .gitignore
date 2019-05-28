@@ -13,9 +13,10 @@ CartPole/Data/*
 ResultsAndTesting/ArchivedData/*
 CartPole/NetCheckpoints/*
 CartPole/PythonTesting.ipynb
-FinalReport/Results/*
-FinalReport/Figures/*
+
 Figures
+*.npz
+*.pth.tar
 *.txt
 *.pyc
 *.aux

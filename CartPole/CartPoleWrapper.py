@@ -25,7 +25,7 @@ class CartPoleWrapper(CartPoleEnv):
         super().__init__()
 
         # flattened and 2d state parameters
-        self.state_bins = 25  # 30 puts us out of memory
+        self.state_bins = 40  # 30 puts us out of memory
         scaling = 1 / 3  # 1/3 gives a flat distribution if obs ~ gaussian, lowering it gives more weight to values -> 0
         # if we have linspace(0, 1, ..) then we get inf as the last two value -> they are never picked
         self.bin_edges = np.asarray(
@@ -38,13 +38,19 @@ class CartPoleWrapper(CartPoleEnv):
         self.player_action_space = [1, -1]
         self.avg_adv_force = 0.05  # Given by equating linear thetadot from a force
 
-        self.adv_action_space = [1, -1]  # default is nnet adversary for #0 and #2
-        self.handicap = 0
-        if self.adversary == 1:  # no adversary
+        # ---------- Initialise the Adversary -------------
+        if self.adversary == 0:  # (training) policy adversary
+            self.adv_action_space = [1, -1]  # default is nnet adversary for #0 and #2
+            self.handicap = 0
+        if self.adversary == 1:  # (test) policy adversary
+            self.adv_action_space = [1, -1]
+            self.handicap = self.avg_adv_force
+        if self.adversary == 2:  # (test) random adversary
+            self.adv_action_space = [1, -1]
+            self.handicap = self.avg_adv_force
+        if self.adversary == 3:  # (test) no adversary
             self.adv_action_space = [0]
-        if self.adversary == 3:
-            self.adv_action_space = [1, -1, 0]
-            self.handicap = 1  # handicap is one here, because the handicap is moves = 0 every 20 turns
+            self.handicap = 0
 
         self.reset_rng = 0.3  # +-rng around 0, when the state is normed (so x=[-1, 1], theta=[-1, 1]....)
         self.loss_weights = [0.4, 0.1, 0.7, 1]  # multiply state by this to increase it's weighing compared to x
@@ -76,7 +82,6 @@ class CartPoleWrapper(CartPoleEnv):
         else:
             f_1 = 0
             f_2 = self.handicap * self.adv_action_space[a] * self.force_mag
-
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
         temp = sintheta * self.polemass_length * theta_dot**2
@@ -157,22 +162,22 @@ class CartPoleWrapper(CartPoleEnv):
         return np.array(self.state)
 
         norm_obs = self.get_normed_observation()
-        # get the index of teh nearest bin edge. Since bin edges near 0 are closer, weighting is better
+        # get the index of the nearest bin edge. Since bin edges near 0 are closer, weighting is better
         norm_obs = [np.abs(self.bin_edges - elm).argmin() for elm in norm_obs]  # bin the normed obs
         edges = np.linspace(-0.5, self.state_bins - 0.5, self.state_bins + 1)  # need extra to get [-0.5, ..., 24.5]
         new_pos, _, _ = np.histogram2d([norm_obs[2], ], [norm_obs[0], ], bins=(edges, edges))
-
         if prev_state_2d is None:
             prev_obs = (self.state[2] - self.state[3], self.state[0] - self.state[1])  # (prev_theta, prev_x)
             prev_obs = (prev_obs[0] / self.theta_threshold_radians, prev_obs[1] / self.x_threshold)
 
             prev_obs_binned = [np.abs(self.bin_edges - elm).argmin() for elm in prev_obs]
             prev_pos, _, _ = np.histogram2d([prev_obs_binned[0], ], [prev_obs_binned[1], ], bins=(edges, edges))
-            prev_pos[prev_pos < 1 / (2 ** 9)] = 0   # only keep up to 8 times steps back
             return new_pos + self.discount * prev_pos
         else:
-            prev_state_2d[prev_state_2d < 1 / (self.discount ** 9)] = 0
-            return new_pos + self.discount * prev_state_2d
+            x = new_pos + self.discount * prev_state_2d
+
+            return x
+
 
     def state_loss(self, state=None):
         if state is None:

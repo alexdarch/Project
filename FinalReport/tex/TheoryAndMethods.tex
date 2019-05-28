@@ -8,7 +8,7 @@
 \section{The Inverted Pendulum (IP)}
 
 \subsection{Dynamics}
-The Inverted Pendulum is an inherently unstable system with highly nonlinear dynamics and is under-actuated.
+The Inverted Pendulum is an inherently unstable system with highly nonlinear dynamics, and is under-actuated.
 
 \begin{figure}[ht]
     \centering
@@ -43,7 +43,7 @@ Using Lyapunov's indirect method, we can write the linearised equations about th
 
 The eigenvalues are given by $det(\lambda I - A) = \lambda^2 (\lambda^2 - \frac{(m+M)}{ML}g) = 0$. Therefore, the system is unstable about $\boldsymbol{x}_e$ due to the right half plane pole, $\lambda = \sqrt{\frac{(m+M)}{ML}g}$. Additionally, the time constant of this unstable system is $\tau = \sqrt{\frac{ML}{g(m+M)}} = 0.22s$. Note, if $M >> m, \tau \rightarrow \sqrt{\frac{L}{g}}$, which is the time constant for a simple pendulum.
 
-OpenAI's gym is a python package that supplies an inverted pendulum environment built-in (called CartPole). This environment was wrapped to use the dynamics above and other extra functionality, whilst providing a rendering function shown in \cref{fig:openai}. \todo{update picture}
+OpenAI's gym is a python package that supplies an inverted pendulum environment built-in (called CartPole). This environment was wrapped to use the dynamics above, whilst providing a rendering function shown in \cref{fig:openai}.
 
 \begin{figure}[H]
    \centering
@@ -53,15 +53,15 @@ OpenAI's gym is a python package that supplies an inverted pendulum environment 
 
 \subsection{Cost and Value Function}
 
-For each step/impulse, the 2D state is calculated and a cost, is calculated as in \cref{equ:cost}, where $\boldsymbol{w}^T = [w_1, w_2, w_3, w_4] = [0.25, 0.1, 0.7, 1]$ and $0 \geq c(x_t, u_t) \geq -1$. The weights, $\boldsymbol{w}$, were chosen through empirical measurement of the the importance of each state ***.
+For each step, a cost is calculated as in \cref{equ:cost}, where $\boldsymbol{w}^T = [w_1, w_2, w_3, w_4] = [0.4, 0.1, 0.7, 1]$ and $0 \geq c(x_t, u_t) \geq -1$. The weights, $\boldsymbol{w}$, were chosen through empirical measurement of the the importance of each state.
 
 \begin{align}
    \label{equ:cost}
    &c(x_t, u_t) = - \frac{1}{\sum_{i} w_i} \cdot \boldsymbol{\hat{x}}^T \begin{bmatrix} w_1 & 0 & 0 & 0\\ 0 & w_2 & 0 & 0\\ 0 & 0 & w_3 & 0 \\ 0 & 0 & 0 & w_4 \end{bmatrix}  \boldsymbol{\hat{x}} \\
-   &\text{where,   } \boldsymbol{\hat{x}}^T = \bigg[\frac{x_t}{x_{max}},  \frac{\dot{x}_t}{\dot{x}_{max}},  \frac{\theta_t}{\theta_{max}},  \frac{\dot{\theta}_t}{\dot{\theta}_{max}}\bigg]^T
+   &\text{where,   } \boldsymbol{\hat{x}}^T = \bigg[\frac{x_t}{x_{max}}, \; \frac{\dot{x}_t}{\dot{x}_{max}}, \; \frac{\theta_t}{\theta_{max}}, \; \frac{\dot{\theta}_t}{\dot{\theta}_{max}}\bigg]^T
 \end{align}
 
- Weighting on the inputs was set to zero, as there are only two inputs for this problem, thus the cost can be written as $c(x_t)$. The max values can be approximated experimentally (note, $x_{max} = 2.4$ and $\theta_{max} = 12^o$ are given constraints):
+ Weighting on the inputs was set to zero as there are only two inputs for this problem, thus the cost can be written as $c(x_t)$. The max values can be approximated experimentally (note, $x_{max} = 2.4$ and $\theta_{max} = 12^o$ are given constraints):
 
 \begin{figure}[H]
    \centering
@@ -69,13 +69,14 @@ For each step/impulse, the 2D state is calculated and a cost, is calculated as i
    \caption{\label{fig:ranges} Histograms of typical state values. The frequencies greatly depend on the quality of the controller, with better controllers giving much narrower distributions. However, these are typical for a controller of medium efficacy over many episodes where the starting state is randomised (possibly to an uncontrollable state).}
 \end{figure}
 
-Suitable estimates for the the values of $\dot{x}_{max}$ and $\dot{\theta}_{max}$ are thus approximately 3 and 2 respectively. The value function is computed after the episode has completed, and is the discounted future losses at each state. A horizon constraint of $\gamma^{k} < \frac{1}{20}$ was chosen as it is a standard factor for insignificance. Since the steps taken after a terminal state has been reached, k, must be defined with the game dynamics (the \texttt{CartPoleWrapper} class), it is a constant. Therefore $\gamma$ is calculated as $\gamma < \frac{1}{20}^{\frac{1}{k}}$. The discounted future values are calculated using a geometric series:
+Suitable estimates for the the values of $\dot{x}_{max}$ and $\dot{\theta}_{max}$ are thus approximately 3 and 2 respectively. After the episode has completed, the ``true value'' of each state is computed as the discounted future costs over a finite horizon (\cref{equ:value}). I.e. the value of a state, $\boldsymbol{x}_t$, is given by $v(\boldsymbol{x}_t) \propto c(\boldsymbol{x}_t) + \gamma c(\boldsymbol{x}_{t+1}) + ... + \gamma^kc(\boldsymbol{x}_{t+k})$, where k is the length of the horizon (chosen to be 14). A horizon constraint of $\gamma^{k} < \frac{1}{20}$ was chosen as it is a standard factor for insignificance. Therefore $\gamma$ is calculated as $\gamma < \frac{1}{20}^{\frac{1}{k}} \implies$ for $k=14$, $\gamma = 0.8$.
 
 \begin{align}
+   \label{equ:value}
    v_0 = \frac{\sum_{\tau=0}^{k} \gamma^\tau c(x_\tau ) }{\sum_{\tau = 0}^k \gamma_\tau}, \hspace{2cm} \text{where } \gamma^k < \frac{1}{20}
 \end{align}
 
-Where for simplicity of notation, $v_0 = v(t)$, the state value at step t.
+Where for simplicity of notation, $v_0 = v(t)$, the state value at step t. Once a terminal state (either out of bounds, or the maximum number of steps) has been reached, the simulation continues for k steps in order for a value to be calculated for every step of the episode.
 
 \subsection{State Representations}
 
@@ -96,9 +97,9 @@ The state can be represented in a number of ways. The simplest method would be $
 
 (2) A matrix stack of $x_t$ vs $x_{t-1}$ for all states. Similarly this scales as $b^n$, however the derivative states do not need to be plotted as these can be inferred. This has the advantage that, if the derivatives are not observable, they are built into the 2D representation, however, if they are observable then this is less accurate than (1).
 
-(3) A matrix of discounted previous states, forming a motion history image. An example of this is shown in \cref{fig:state2D},  and \Cref{alg:state2d} shows the implementation details. This was the chosen representation.
+(3) A matrix of discounted previous states, forming a motion history image. An example of this is shown in \cref{fig:state2D},  and \cref{alg:state2d} shows the implementation details. This was the chosen representation.
 
-A 2D representation such as this allows us to use a convolutional neural network, which has the benefit of various transformation invariances - these are particularly useful for the inverted pendulum since it is symmetric.
+A 2D representation such as this allows us to use a convolutional neural network (CNN), which has the benefit of various transformation invariances - these are particularly useful for the inverted pendulum since it is symmetric.
 
 
 \begin{algorithm}[b]
@@ -121,9 +122,7 @@ A 2D representation such as this allows us to use a convolutional neural network
    \end{algorithmic}
 \end{algorithm}
 
-The state space model for the quantisation of the linearised inverted pendulum (valid for small time steps) can be modelled as (where $\mathcal{U}$ is a uniform distribution, centred on 0):
-
-The state space model for the quantisation of the linearised inverted pendulum can be written as:
+The linearised inverted pendulum (valid for small time steps) can be modelled as a state space model:
 {
 \newcommand{\bx}{\boldsymbol{x}}
 \newcommand{\bu}{\boldsymbol{u}}
@@ -134,7 +133,7 @@ The state space model for the quantisation of the linearised inverted pendulum c
 \end{align}
 }
 
-Where A and B are the linearised system dynamics (valid for small time steps), and C is the linear transformation to a 2D state space, with quantisation noise \textbf{V}.
+Where A and B are the linearised system dynamics, and C is the linear transformation to a 2D state space, with quantisation noise \textbf{V} modelled as a uniform random disturbance, $\mathcal{U}$, centred on (0, 0).
 
 The initial mean squared error (MSE), and the propagation of the error (when estimated optimally) are given by eqs. (\ref{equ:errora}) and (\ref{equ:errorb}) where $\delta x = \delta \theta$ (derivation details can be found in \cref{appendix:quant}).
 
@@ -143,22 +142,24 @@ The initial mean squared error (MSE), and the propagation of the error (when est
       \Sigma_{n+1} &= (I - \bar{\Sigma}_{n+1}C^T (\sigma_v^2 I + C \bar{\Sigma}_{n+1} C^T)^{-1} C)\bar{\Sigma}_{n+1} \label{equ:errorb}
 \end{align}
 
-Where $\bar{\Sigma}_{n+1} = A \Sigma_n A^T$. When A is the linearised inverted pendulum dynamics and C is an arbitrary matrix to convert $\boldsymbol{x}_t$ into a 2D state, it can be shown (see \cref{appendix:quant}) that as $t \rightarrow \infty$, the covariance of quantisation decays to zero since $\underset{\delta x \rightarrow 0}{lim} \sigma_v^2 = 0$ and therefore this form for a 2D state becomes lossless (assuming that the neural network acts as an optimal kalman filter). For a given bin size, the MSE decreases linearly, however it decreases quadratically with bin size, therefore the MSE will always decay to zero. A fine bin size will improve the rate of decay but increase the computational load of when computing the state and through the neural network.
+Where $\bar{\Sigma}_{n+1} = A \Sigma_n A^T$. It can be shown (see \cref{appendix:quant}) that as $t \rightarrow \infty$, the covariance of quantisation decays to zero since $\underset{\delta x \rightarrow 0}{lim} \sigma_v^2 = 0$ and therefore this form for a 2D state becomes lossless (assuming that the neural network acts as an optimal Kalman filter). For a given bin size, the MSE decreases linearly with time, however, the MSE decreases quadratically with bin size. Therefore, a smaller bin size will quadratically improve the rate of decay but quadratically increase the computational load of when computing the state and through the neural network. Therefore, there is a tradeoff in choosing the number of bins between computational complexity and state error. 
 
-With a non-zero bin size the overall error can be reduced by binning more densely in regions in which the IP is expected to spend more time. \Cref{fig:ranges} shows that the state visit frequencies roughly correspond to normal distribution, therefore by transforming the bins with an inverse gaussian c.f.d. a flattened distribution can be obtained with a greater density of bins in the centre (\cref{fig:binning}). This has the additional benefit of allowing finer control where it is needed. For example, if the pole is far from the equilibrium the optimal action more easily determined, and subject to less change with small state variations, therefore coarser binning can be used.
+With a non-zero bin size the overall error can be reduced by binning more densely in regions in which the IP is expected to spend more time. \Cref{fig:ranges} shows that the state visit frequencies roughly correspond to normal distribution, therefore by transforming the bins with an inverse Gaussian c.f.d. a flattened distribution can be obtained with a greater density of bins in the centre (\cref{fig:binning}). This has the additional benefit of allowing finer control where it is needed. For example, if the pole is far from the equilibrium the optimal action more easily determined, and subject to less change with small state variations, therefore coarser binning can be used.
 
 \begin{figure}[h]
    \centering
    \includegraphics[width=\textwidth]{binning.png}
-   \caption{Binning of a gaussian distribution with bin edges scaled with an inverse gaussian c.f.d. For this example there are 25 bins.}
+   \caption{Binning of a Gaussian distribution with bin edges scaled with an inverse Gaussian c.f.d. For this example there are 25 bins.}
    \label{fig:binning}
 \end{figure}
 
-\subsection{Discrete vs Continuous Time}
+\subsection{Discretisation and Continuous Time}
 
 For a small enough discrete time step, the simulation will approximate the continuous process very well. Under a continuous action space, the sampling rate must be faster than the system dynamics to ensure controllability. When the action space is restricted to $u \in \{-1, 1\}$, there is a trade off between the sampling rate and the size of the action space. If the sampling rate is fast enough pseudo-continuous actions can be achieved via pulse-width modulation. For the IP system described, the time constant, $\tau$, is approximately $0.022$s. Moreover, the agents move alternately, therefore the sampling time step $ \delta t$, must be  less than  $0.011$s, however due to computational limitations, a time step of $0.01$s was chosen.
 
 The positional change per time step can be computed by considering the average maximum velocities: $3m/s$ and $2rad/s$. Thus the maximum positional change between an agent's actions is $\dot{x}_{i, max} \times \frac{\delta t}{x_{i, max}} = 2.5\%$ and $30\%$ respectively. In practice a $30\%$ change in $\theta$ would only occur around $\theta_{max}$ and would be uncontrollable. Therefore, the choice of $\delta t = 0.01$ is not detrimental to the control, but will not give pseudo-continuous actions.
+
+This maximal positional change per time step also informs the bin size needed. Ideally, each time step lands within a new bin, therefore for the x-position, $\frac{1}{2.5\%} = 40$ is the minimum number of bins needed. Similarly, $\frac{1}{30\%} = 3$ is the minimum number of bins needed for the angular position, however, empirically, $\theta$ is a more ``important'' state variable due to its relative ease of exceeding $\theta_{max}$. Therefore, given that the bins are more finely space near (0, 0) and for simplicity, 40 bins for both $x$ and $\theta$ was chosen.
 
 \section{Self Play and Adversaries}
 
@@ -169,10 +170,11 @@ In AlphaZero, the adversary is working to minimise the value function whereas th
 The adversary for the inverted pendulum has the additional advantage of gravity, making the play asymmetric. Given that both the state-value and cost are $-1 < v, c < 0$, multiplying by -1 would mean the adversary is maximising a value function $0 < v < 1$. State-values outside these ranges have no meaning. If a single neural network is used, values close to equilibrium may be predicted into the wrong range. Consequently, both the adversary and the player must predict true state-values. This also has the advantage of maintaining an intuitive meaning of the state-value.
 
 \subsection{Choice of Action}
+\label{sec:choiceofaction}
 
 The inverted pendulum system is symmetric in both $x$ and $\theta$. By taking advantage of this the number of training examples could be doubled by reflecting episodes along the axis of symmetry. However, as shown with AlphaZero \cite{AlphaZero}, this provides minimal benefit and also hinders generalisation. The adversarial point of action was chosen to be at the top of the pole, acting horizontally (\cref{fig:invpen}), thus ensuring that two distinct policies must be learnt, rather than one being just inverse probabilities of the other. For simplicity $u_{adv} \in h \cdot \{-1, 1\}$ was chosen, where $h$ is a handicap applied to the adversary.
 
-The handicap can be approximated using the linearised dynamics \cref{equ:linearised} by investigating what force would be needed by each agent to achieve the same change change in the state (\cref{equ:actionchoice1,equ:actionchoice2}) (setting $\delta \boldsymbol{x} = \boldsymbol{0}$).
+The handicap can be approximated using the linearised dynamics \cref{equ:linearised} by investigating what force would be needed by each agent to achieve the same change in the state (\cref{equ:actionchoice1,equ:actionchoice2}) (setting $\delta \boldsymbol{x} = \boldsymbol{0}$).
 
 \begin{subequations}
 \begin{align}
@@ -181,7 +183,7 @@ The handicap can be approximated using the linearised dynamics \cref{equ:lineari
 \end{align}
 \end{subequations}
 
-Empirically, the pendulum is more likely to fall rather than to exceed $x_{max}$. Therefore, a good estimate of $h$ would be $\frac{m}{2M+m} = \frac{0.1}{2+0.1} \approx 0.0476$. When testing this it was found that if $F_1$ was set near $0.04-0.05$ initially, the adversary gets the upper-hand quickly and the pendulum falls very quickly, not allowing the player to gain any training experience. Therefore, for the first N iterations, the adversary force was set to 0, and increased as the number of iterations increased according to $h = (1-0.7^{\,i-N+1})$, where i is the iteration, and 0.7 was chosen such that the adversary could be implemented on the first iteration without overpowering the still-training player.
+Empirically, the pendulum is more likely to fall over (exceed $\theta_{max}$) rather than to exceed $x_{max}$. Therefore, a good estimate of $h$ would be $\frac{m}{2M+m} = \frac{0.1}{2+0.1} \approx 0.0476$. When testing this it was found that if $F_1$ was set near $0.04-0.05$ initially, the adversary gets the upper-hand quickly and the pendulum falls very quickly, not allowing the player to gain any training experience. Therefore, for the first N iterations, the adversary force was set to 0, and increased as the number of iterations increased according to $h = (1-0.7^{\,i-N+1})$, where i is the iteration, and 0.7 was chosen such that the adversary could be implemented on the first iteration without overpowering the still-training player.
 
 \subsection{Agent Representation}
 
@@ -262,24 +264,22 @@ The overall policy iteration algorithm is given by \cref{alg:PI}.
 The following loss function is minimised when training the neural networks:
 
 \begin{equation}
-   \mathcal{L} = \sum_t (v_\theta (\boldsymbol{x}^{(2D)}_t) - v_t)^2 + c_{pareto} \cdot \boldsymbol{\pi} \cdot log(\boldsymbol{p}_\theta(\boldsymbol{x}))  + c||w_{nnet}||^2
+   \mathcal{L} = \underbrace{\sum_t (v_\theta (\boldsymbol{x}_t) - v_t)^2}_{\mathcal{L}_{value}} + c_{pareto} \cdot \underbrace{\boldsymbol{\pi}_t \cdot log(\boldsymbol{p}_\theta(\boldsymbol{x}_t))}_{\mathcal{L}_{action}}  + \underbrace{c||w_{nnet}||^2}_{regularisation}
 \end{equation}
 
-Where $c_{pareto}$ is a constant. During training the agents move probabilistically throughout, rather than switching to acting greedily after 30 moves as in AlphaZero \cite{AlphaZero}. As such, mean squared error was used for the action-losses.
+Assuming that policy action predictions and value predictions are of similar importance, similar magnitudes of action and value losses are desireable. The constant, $c_{pareto}$, was chosen such that ($\mathcal{L}_{action} \approx \mathcal{L}_{value}$). The minimum entropy for two possible actions is 1bit, and since the action loss is the negative log likelihood of a categorical distribution, the minimum loss is -1. The value losses are calculated using the MSE, which is positive, and has an average value of approximately $0.1$ (\cref{fig:nnetlosses0,fig:nnetlosses1,fig:nnetlosses2,fig:nnetlosses10}), therefore $c_{pareto}$ was set to 0.1.
 
-\texttt{is this actually a good idea? Why not use greedy?}
+During training the agents were chosen to move probabilistically throughout for the first 14 moves, and then move greedily. 14 was chosen as this is the average episode length when the player moves randomly without an adversary.
 
-Due to the asymmetric nature of the problem, the value and action-losses can be of very different magnitudes. A constant factor, $c_{pareto}$, was used to prevent this.
-
-2 epochs
 \subsection{Architectures}
-Two neural network architectures are used, one that takes the raw state, $\boldsymbol{x} = [x \; \dot{x} \; \theta \; \dot{\theta}]^T$ as input, and another that takes the 2D state, $\boldsymbol{x}^{(2D)}$. The adversary and player have separate networks, both predicting the state-value and action \textit{p.m.f}s.
+\label{sec:architectures}
+Two neural network architectures are used, one that takes the raw state, $\boldsymbol{x} = [x \; \dot{x} \; \theta \; \dot{\theta}]^T$ as input (the ``\textit{baseline}'' network), and another that takes the 2D state, $\boldsymbol{x}^{(2D)}$ (the convolutional neural network, ``\textit{CNN}''). The adversary and player have separate networks, both predicting the state-value and action \textit{p.m.f}s.
 
-For the network with $\boldsymbol{x}^{(2D)}$ as input, there are 2 fully connected convolutional layers with max-pooling, followed by 2 feedforward layers with \textit{ReLU} activations. The two ``heads'' split here and have 2 fully-connected layers each, with the value head outputting $v_\theta$ and the action head outputting $\boldsymbol{p}_\theta$. The network with $\boldsymbol{x}$ as input is the same, except the convolutional layers are replaced with 2 feedforward layers.
+For the network with $\boldsymbol{x}^{(2D)}$ as input, there are 2 fully connected convolutional layers with max-pooling, followed by a feedforward layer with \textit{ReLU} activations. The two ``heads'' split here and each has fully-connected layer, with the value head outputting $v_\theta$ and the action head outputting $\boldsymbol{p}_\theta$. The network with $\boldsymbol{x}$ as input is the same, except the convolutional layers are replaced with 2 feedforward layers.
 
-Both architectures perform training with the \textit{Adam Optimiser}, a mini-batch size of 8, a dropout of 0.3 and batch normalisation. The networks are implemented in pytorch\footnote{www.pytorch.org}.
+Both architectures perform training with the \textit{Adam Optimiser}using a learning rate of 0.0005, a mini-batch size of 64, a dropout of 0.3, batch normalisation and 1 epoch. The networks are implemented in pytorch\footnote{www.pytorch.org}.
 
-The neural network is evaluated once every step in the MCTS, therefore in an episode of length L and S MCTS simulations/step, the neural network is evaluated more than $L\times S$ times. The GPU used to run experiments is a single NVIDEA GeForce GTX 1050. The convolutional layers of a neural network are the most computationally expensive part and, increasing with the image size, are more than 50\% of the computational time in the architectures defined above. Therefore, there is a trade off between the number of convolutional layers used and computation time. The number of layers was chosen such that running the program takes less than 12hrs.
+The neural network is evaluated once every step in the MCTS, therefore in an episode of length L and S MCTS simulations/step, the neural network is evaluated more than $L\times S$ times. The GPU used to run experiments is a single NVIDEA GeForce GTX 1050. The convolutional layers of a neural network are the most computationally expensive part and, increasing with the image size, are more than 50\% of the computational time in the architectures defined above. Therefore, there is a trade off between the number of convolutional layers used and computation time. The number of layers was chosen such that running the program takes less than 24hrs. Additionally, the memory of the GPU is 4GB, which limits the number of weights that can be used in the neural networks. It was found that adding an additional layer to the CNN exceeds this memory limit. The architecture of the baseline network was chosen to match that of the CNN.
 
 \section{MCTS}
 
@@ -287,7 +287,7 @@ The general MCTS algorithm, outlined in \cref{sec:mctsintro}, was implemented fo
 
 \subsection{Tree Nodes and Simulations}
 
-The state for the inverted pendulum is continuous ($\boldsymbol{x} \in \mathbb{R}^4$), as opposed to the discrete nature of board games. In order to be able to compare nodes, the states must be stored as unique integers. Each MCTS simulation ends with a leaf node being expanded, therefore after S simulations from a node, S states will be visited. Over the whole episode, $S\times L$ distinct states will be visited in total. Thus, the probability of revisiting a state from a different trajectory is $(S \times L)b^4$, where b is the number of bins for each dimension. Given that $L=400$ and, if $S>30$, the maximum recursion depth of the MCTS will be reached - limiting the maximum value of $S$. Multiplying the states by $10^{12}$ and converting to integers ensures a vanishingly small of encountering a state twice.
+The state for the inverted pendulum is continuous ($\boldsymbol{x} \in \mathbb{R}^4$), as opposed to the discrete nature of board games. In order to be able to compare nodes, the states must be stored as unique integers. Each MCTS simulation ends with a leaf node being expanded, therefore after S simulations from a node, S states will be visited. Over the whole episode, $S\times L$ distinct states will be visited in total. Thus, the probability of revisiting a state from a different trajectory is $(S \times L)b^4$, where b is the number of bins for each dimension. Given that $L=400$ and, if $S>30$, the maximum recursion depth of the MCTS will be reached - limiting the maximum value of $S$. Multiplying the states by $10^{12}$ and converting to integers ensures a vanishingly small probability of encountering a state twice.
 
 \subsection{Action Selection}
 Action selection moving down the tree was modified to reflect the asymmetry of the state-value:
@@ -392,6 +392,6 @@ where $\mathbb{E}[s^p_{curr}] = \mathbb{E}[s(\fp{curr})]$ denotes the score for 
 
 
 %\onlyinsubfile{\subfile{Bibliography.tex}}
-\appendix
+\onlyinsubfile{\appendix}
 \onlyinsubfile{\subfile{Appendix.tex}}
 \end{document}

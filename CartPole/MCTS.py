@@ -68,7 +68,6 @@ class MCTS:
         agent %= 2
         state = self.env.get_state()
         s = self.env.get_mcts_state(state, g_accuracy)
-
         # ---------------- TERMINAL STATE ---------------
         if done:
             if self.env.mcts_steps >= self.env.steps_till_done:

@@ -1,114 +1,201 @@
 \documentclass[../main.tex]{subfiles}
 \begin{document}
-\graphicspath{{Results/Training1/}{../Results/Training1/}{../Results/}{Results/}}
 \onlyinsubfile{\tableofcontents{}}
+
 \chapter{Results and Discussion}
 
 \section{Training}
 
-In this section how the training of the player and adversary will be investigated, using the theory discussed thus far. It is expected that results will be variable due to the minimal amount of data that can be generated with due to computational limitations, however, performance is expected to improve overall for both the adversary and the player. These results are then interpreted with a discussion of their merits and possible explanations. The results are then checked against a base-line neural network that takes the true state, $\boldsymbol{x}$, as input. It is expected that these will have comparable performance. For the training runs shown, the parameters used are given in table \ref{table:trainingparams}.
+In this section, the training of the player and adversary will be investigated. The first sections will discuss the results of a baseline neural network, $f_{\theta}(\boldsymbol{x})$, which takes the true state as input. This is followed by a comparison with those of the network that took the 2-dimensional state as input, $f_{\theta}(\boldsymbol{x}^{(2D)})$. The results are interpreted with a discussion of the merits and shortcomings of the techniques. For the training runs shown, the parameters used are given in \cref{tab:tparams} and \cref{sec:architectures}.
 
 \begin{table}[h]
     \centering
-    \begin{tabular}{c | c | c | c}
-        Unopposed Episodes/iter & Opposed Episodes/iter & nMCTS Simulations & $F_2^{(max)}$  \\
+    \begin{tabular}{c | c}
+        Parameter & Value \\
         \hline
-        100 & 40 & 15 & 0.05 \vspace{0.5cm}\\
-        $\boldsymbol{x}^{(2D)}$ bins & $\boldsymbol{x}^{(2D)}$ discount & Learning Rate & Mini-Batch Size \\
-        \hline
-        50 & 0.5 & 0.0005 & 64
+        Unopposed Episodes for initial iteration &  100\\
+        Opposed Episodes per iteration &  40\\
+        Number of MCTS Simulations per step & 20 \\
+        $F_2^{(max)}$  &  0.05\\
+        $\boldsymbol{x}^{(2D)}$ bins & 40 \\
+        $\boldsymbol{x}^{(2D)}$ discount &  0.5\\
     \end{tabular}
-    \label{table:trainingparams}
     \caption{Training parameters used}
-    \end{table}
+    \label{tab:tparams}
+\end{table}
+
+Iterations start at zero and are defined by two main steps: (1) A batch of training examples are generated using the current neural networks. (2) The neural networks are retrained using these examples. The full algorithm can be found in \cref{alg:PI}.
 
 \subsection{MCTS}
 
-\begin{figure}[h]
+\Cref{fig:tree} shows the structure of a typical tree search without neural network training. This is significantly better than with no tree search, which typically achieves an episode length of 14.
+
+\begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{Tree.PNG}
-    \caption{An example MCTS tree structure lasting 33 steps with 15 MCTS simulations per step. Both agents are untrained. The adversary has and average power of 5\% of the player ($F_2 = 0.05F_1$). Lighter (yellow) colours represent ``better'' states.}
+    \caption{An example MCTS tree structure lasting 33 steps with 15 MCTS simulations per step and both agents are untrained. The adversary has and average power of 5\% of the player ($F_2 = 0.05F_1$). Lighter (yellow) colours represent ``better'' states.}
     \label{fig:tree}
-\end{figure}
-
-\Cref{fig:tree} shows the structure of a typical tree search when relying solely on the tree search. This is significantly better than with no tree-search, which typically achieves an episode length of 7.
-
-\texttt{Do graph of MCTS sims vs episode length with no training?}
-
-\begin{figure}[h]
+    \vspace{0.7cm}
     \centering
     \includegraphics[width=\textwidth]{MicroTree.PNG}
     \caption{A zoomed in view of \cref{fig:tree}. The three colours of each node are based on the value of $U=Q(\boldsymbol{x}, u) + ucb$ as in \cref{equ:IPucb}, the number of state-action visits, $N(\boldsymbol{x}, u)$, and the state-cost, $c(\boldsymbol{x}_t)$. The red nodes follow the true trajectory. Ns ($N(\boldsymbol{x})$) is the total number of state visits, this does not equal the action-state visit count, Nsa ($N(\boldsymbol{x}, u)$), these differ along the true trajectory due to the re-running of the MCTS simulation.}
     \label{fig:microtree}
 \end{figure}
 
-\Cref{fig:microtree} shows the sequential maximisation that occurs during the tree search. Note that the action-value, $Q(\boldsymbol{x}_t, u_t)$, for the adversary is negated and $Q$ is between -1 and 0 for the player. $N(\boldsymbol{x}, u)$ is correlated with the predicted value, $V_{pred}$, and $U$, which suggests that the neural network and tree search are working as expected. At the first branching in \cref{fig:microtree} the $ucb$ is 17\% of $U$. Intuitively, this is within the correct range as a larger exploration term would cause the MCTS to branch more, diminishing the computational benefit of the structured search, whereas a smaller exploration term inhibits learning. To get this ratio, a value of 1 was chosen for $c_{explore}$. The action-state visit counts are 22 and 17, which are markedly higher than the number of simulations per step (10 in this example), suggesting the MCTS is performing a highly structured search. In this example, the visit counts reflect the similar $Q$ values of each branch.
+\Cref{fig:microtree} shows the sequential maximisation that occurs during the tree search. Note that the action-value, $Q(\boldsymbol{x}_t, u_t)$, for the adversary is negated and $Q$ is between -1 and 0 for the player. $N(\boldsymbol{x}, u)$ is correlated with the predicted value, $V_{pred}$, and $U$, which suggests that the neural network and tree search are working as expected. At the first branching in \cref{fig:microtree} the $ucb$ is 17\% of $U$. Intuitively, this is within the correct range as a larger exploration term would cause the MCTS to branch more, diminishing the computational benefit of the structured search, whereas a smaller exploration term inhibits learning. To achieve this ratio, a value of 1 was chosen for $c_{explore}$. The action-state visit counts are 22 and 17, which are markedly higher than the number of simulations per step (10 in this example), suggesting the MCTS is performing a highly structured search. Furthermore, the similar predicted state values, $v_\theta(\boldsymbol{x})$, reflect similar visit counts of each branch.
 
-\subsection{Neural Network Training}
+\subsection{State and Action Predictions}
 
-In order to get similar magnitudes of action and value losses ($\mathcal{L}_{action} \approx \mathcal{L}_{value}$) a constant, $c_{pareto}$, was chosen. The minimum entropy for two possible actions is 1 bit and since the action loss is the negative log likelihood of a categorical distribution, the minimum loss is -1. The value losses are calculated using the MSE, which is positive, and has an average value of $\approx 0.1$, therefore  $c_{pareto}$ was set to 0.1. 
+In this subsection, the output of the baseline neural network for a specific episode (\cref{fig:value,fig:action2,fig:action4}) is investigated. From this, the suitability of using a neural network for both the adversary and the player, what the neural networks are modelling and limitations of the model are discussed.
 
-How much to train the player before introducing an adversary and how strong to make the adversary is difficult to balance. Typically, either the adversary is too strong and the episode is over within 20 time steps, or the adversary learns to simply push in one direction only. \Cref{fig:actioncorr} shows this transition occuring over just one episode. Iteration 1 has MCTS predictions grouped as either left or right
-
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=\textwidth]{bias.PNG}
-    \caption{The change in MCTS predicted actions (right) and policy predicted actions (left) between iteration 1 (top) and iteration 2 (bottom). The points represent sequential action pairs, $(u_{t-1}, u_t)$, and show how correlated an adversary action is with the previous agent's (player) action.}
-    \label{fig:actioncorr}
-\end{figure}
-
-Over the first few training iterations, the loss decreases steadily \cref{fig:nnetlosses0,fig:nnetlosses1,fig:nnetlosses2,fig:nnetlosses10}.
-
-After the second iteration, the action losses do not decrease much, suggesting that they have already been trained (possible over-fitting)
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{value_vs_step.PNG}
-    \caption{Value vs Step.}
+    \includegraphics[width=\textwidth]{Training1D/value_vs_step.PNG}
+    \caption{The predicted state-values (from both the adversarial and player networks) plotted against the true state-value for a number of iterations.}
     \label{fig:value}
 \end{figure}
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{action_vs_step2.PNG}
-    \caption{Action vs Step}
-    \label{fig:action2}
-\end{figure}
+\Cref{fig:value} shows that by iteration 4 the player and adversary networks both follow the true value very closely, and by the 10th iteration the mean squared error (MSE) is almost zero (\cref{fig:nnetlosses10}). This is likely due to the adversary pushing only in one direction, therefore making the value very predictable. In iteration 2, the adversary values are more ``jagged'', alternating between a positive and negative evaluation depending on whether the player (which roughly alternates between pushing left and right when near the equilibrium) has pushed the pendulum further over or not. I.e. by iteration 10, the adversary has learnt to predict the player's actions, which suggests that the prediction of the state-value is not impeded by the use of two neural networks.
+
+\Cref{fig:action2,fig:action4} show the change in policy action predictions between iteration 2 and iteration 4. By iteration 2 the adversary has already decided on the direction that it will push, however the player is still tuning itself. At iteration 4, the player 4 switches between pushing left and right at a lower frequency.
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\textwidth]{action_vs_step4.PNG}
-    \caption{Action vs Step}
+    \includegraphics[width=0.8\textwidth]{Training1D/action_vs_step2.PNG}
+    \caption{MCTS and policy predicted actions vs step for an episode in iteration 2.}
+    \label{fig:action2}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Training1D/action_vs_step4.PNG}
+    \caption{MCTS and policy predicted actions vs step for an episode in iteration 4.}
     \label{fig:action4}
 \end{figure}
 
-\subsection{Action and State Values}
+The output of the predicted values for a small slice of $\dot{x}$ is shown in \cref{fig:3D4}. Along all pairs of axes, the data is not linearly separable, furthermore principal component analysis (PCA) shows that the predicted values are not linearly separable along the principal axes either (\cref{fig:PCA}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{Training1D/3D4.PNG}
+    \caption{A 3D plot of policy-predicted actions during training. The central ``blob'' is projected onto the $(x,\dot{\theta})$, $(x, \theta)$ and $(\theta, \dot{\theta})$ axes.}
+    \label{fig:3D4}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{Training1D/PCA.PNG}
+    \caption{Principal Component Analysis of the data in \cref{fig:3D4}.}
+    \label{fig:PCA}
+\end{figure}
+
+In the optimal control solution, a real valued force would be used to get the pendulum to the equilibrium. Due to the constraint over the actions, the policy must approximate that by repeatedly pushing left/right in order to get an average force that is equivalent to a continuous one. By iteration 4 (\cref{fig:action4}), the neural network matches the MCTS prediction at almost every step and switches quickly between pushing left and right. This implies that a trajectory through the $(x, \theta)$ plane would look like a ``wave'', where the power cycle of the wave in the vicinity of the point is proportional to the instantaneous average power predicted at that point. Additionally, a higher frequency of the wave is related to a faster response time of the system. Higher frequencies requiring deeper neural networks. Portions of this wave are shown in the $(x, \theta)$ projection of \cref{fig:3D4}.
+
+The instantaneous predicted average power of the policy can be estimated by applying a low-pass filter to the predicted action probabilities (orange line in \cref{fig:action2,fig:action4}). The low-pass filter has a normalised cut-off frequency of $\frac{1/\tau}{2/\delta t}$, where $\tau$ is characteristic time of the system and $\frac{2}{\delta t}$ is the Nyquist frequency. For this system, however, this only provides marginal insight as, for this implementation, the time step is almost the same as the characteristic time. Decreasing the time step requires the episode length to be increase such that the real-world episode time is constant at $dt\times S = 0.01s \times 400steps = 4s$. Therefore, decreasing $dt$ causes a significant computational time.
+
+\Cref{fig:action2,fig:action4} show that the frequency decreases between iteration 2 and iteration 4, therefore, the neural network is not making use of the highest frequency that it has the capacity to use as in iteration 2. This suggests that against this adversary, a frequency higher than the natural frequency is not necessary for good control. This may be because a higher frequency is needed for more uncertain situations and, since the adversary is only pushing in one direction, does not need to oscillate as quickly.
+
+\subsection{Power Matching and the Policy}
+
+In this subsection, the problem of power matching the player and adversary and the efficacy of pre-training the player as a solution to this are analysed. This is followed by a discussion on why the player and adversary act as they do, with an interpretation of the policies they have learnt.
+
+It was found that training the player unopposed indefinitely will cause the player to balance the pendulum within a few time steps from a wide range starting positions, however introducing an adversary at or close to ``full power'' (i.e. $F_2  \gtrapprox  0.0476F_1$, \cref{sec:choiceofaction}) will cause the inverted pendulum to fall immediately. Therefore, an unopposed training episode and an incremental increase in adversary power were introduced. After implementing this, typically, either the adversary is too strong and the episode is over within 20 time steps, or the adversary learns to simply push in one direction only. \Cref{fig:actionbias} shows this transition occuring over just one episode. Since the adversary was not trained on iteration 0, iteration 1 has MCTS predictions to push both right and left. However, during the training in iteration 2, even with approximately $10\%$ of training examples pushing left, the network trains to push right 100\% of the time, and as a result the MCTS also predicts that pushing right is always the best action.
+
+The player does not suffer from this bias and has a far more uniform spread of policy predictions in iteration 2. In iteration 3, the policy predicts either left or right with 100\% conviction, however, these are distributed in a roughly 50:50 split, with the proportion of $p(Player \; Action = left) > 0.5$ being slightly higher, to counter the adversary always pushing right. As a result of the adversary being trained to push solely in one direction, the proportion states that are visited are biased in one direction. Visually, this is as if the system is performing the set-point tracking of a reference angle slightly off centre, and therefore slowly moves in one direction until reaching $x_{max}$.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{Training1D/actionbias.PNG}
+    \caption{Histograms showing the distribution of predicted actions by the MCTS and pure policy for both the player and adversary.}
+    \label{fig:actionbias}
+    \vspace{0.7cm}
+    \centering
+    \includegraphics[width=\textwidth]{Training1D/statebias.PNG}
+    \caption{Histograms showing the proportion of time that the system was in each state on the second iteration.}
+    \label{fig:statebias}
+\end{figure}
+
+The most likely cause for this bias is the differing abilities between agents due to pre-training the player too much or too little, and the power curve of the adversary. How much to train the player before introducing an adversary and how strong to make the adversary is difficult to balance. The player can be better-trained by increasing the number of training examples it has from unopposed episodes and by increasing the number of unopposed policy iterations. Additionally, the adversary's power, and power curve, can be adjusted by varying $\gamma$ and $F_2$ in the adversary handicap formula, $F_2(1-\gamma^{\, i-N+1})$. However by training the player more and under-powering the adversary, the adversary learns to push solely in one direction. Pre-training the player too little typically leads to the overtraining of the neural network on a small number of examples, which is difficult to re-train against. Alternatively, under-powering the adversary, or making it too weak for too long seems to cause the adversary to learn that slowly pushing the inverted pendulum to $x_{max}$ is the best option, rather than attempting to push it over quickly.
+
+The cost function being weighted as $\boldsymbol{w}^T = [0.4, 0.1, 0.7, 1]$ may have exacerbated this behaviour. A low weight the on $x$-position compared to the angular position may mean that the player is not prioritising stopping the slow drift to $\boldsymbol{x}_{max}$. Yet from the adversary's perspective, since it is initially learning whilst underpowered, this is the best way to reduce the state value. A possible way in which this could have been prevented would have been to set the $x$-position cost to zero. In this case, if the adversary solely pushes in one direction, either the player would be able to find an equilibrium by leaning into the adversary's force - minimising the $\dot{x}$ cost, but outputting a constant $\theta$ cost; or the player would attempt to minimise the $\theta$ cost and as a result move in one direction continuously - outputting a constant $\dot{x}$ cost. Both of these scenarios do not consistently improve the adversary's state value, therefore this could force the adversary to attempt to knock the pendulum over, rather than slowly improving the state-value.
 
 
+\subsection{Comparison with $f_{\theta}(\boldsymbol{x}^{(2D)})$}
 
-show the evolution of action training, and how they start out biased due to the training with f2=0 and then gets less and less biased..
+The training of the convolutional neural network (CNN) results in training episodes with very oscillatory behaviour compared to the the baseline network (\cref{fig:motion1D,fig:motion2D}).
 
-talk about general trends and what the optimal control policy is likely to be
+\begin{figure*}[h]
+    \centering
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Training1D/motion_history_2.PNG}
+        \caption{True-State Input}
+        \label{fig:motion1D}
+    \end{subfigure}%
+    ~ 
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{Training2D/motion_history_2.PNG}
+        \caption{2-Dimensional State Input}
+        \label{fig:motion2D}
+    \end{subfigure}
+    \caption{Motion history images showing the trajectories of 5 episodes for both neural networks. Higher valued colours represent more recent positions (or positions with multiple visits as the images are computed as a sum of discounted states).}
+\end{figure*}
 
-how did things being discrete affect things? what might improve these results? Do average/smoothed one?
+The oscillatory nature of these episodes are due to the player switching between pushing left and right much slower than the characteristic time of the system (\cref{fig:2Daction4}).
 
-\section{Performance}
+This is likely due to the a relatively shallow neural network being used (2 convolutional layers followed by 1 linear layer, see \cref{sec:architectures}). A deeper neural network was found to exceed the memory allocation limit of the GPU used. It is possible that this caused a more simple model of the controller to be trained, such that the data became easily linearly separable, as shown in \cref{fig:2D3D4} where the $(x, \theta)$ and $(\theta, \dot{\theta})$ axes have easily separable predictions. 
 
-\section{Performance Without an Adversary}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Training2D/action_vs_step4.PNG}
+    \caption{MCTS and Policy Predicted Actions vs Step for An Episode in Iteration 4.}
+    \label{fig:2Daction4}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{Training2D/3D4.PNG}
+    \caption{A 3D plot of policy-predicted actions after the 4th iteration of training of the CNN.}
+    \label{fig:2D3D4}
+\end{figure}
 
+As the training iterations increased the oscillations became larger, until iteration 9 where they became large enough that the controller could not stabilise the pendulum at all.
 
-\section{Performance Against a Random Opponent}
-Selected Distributions
+Another possibility for the poor training of the CNN is the relatively small number of training examples used. Each iteration generates less than 16,000 examples (40 episodes each with 400steps), and at each iteration the last 5 iteration's examples are used for training, which gives a maximum of 80,000 training examples - or 40,000 for each agent. With 40 bins there are 40x40=1600 possible positions. The number of possible 2D-states increases as $1600^n$, where n is the number time steps recorded, therefore, even after 2 time steps, there are 64 times more possible 2D-states than training examples.
 
-do against a constant random opponent
-do against say off for 30 steps then hit with a +- 5
-do against a multinomial distribution with expected value of 0.05?
-do against
+\newpage
+\section{Evaluation and Testing}
 
-\section{Performance Against a Trained Adversary}
+In this section, the results of experiments with the player against a number of adversaries is discussed and the performance and robustness of the algorithm is evaluated.
 
-Compare when trained n the adversay against the random opponents? and also against no adversary? Is it robust?
+\subsection{Performance Against a Random Opponent}
 
+Against a random adversary with $F_2 = 0.05F_1$, the player's performance improves with the number of MCTS simulations when it has not been trained. However, the performance after training is constant, as shown in \cref{fig:rand}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{Training1D/RandomLength.PNG}
+    \includegraphics[width=\textwidth]{Training1D/RandomScore.PNG}
+    \caption{The length and length std, and mean score of a random adversary with $F_2=0.05F_1$.}
+    \label{fig:rand}
+\end{figure}
+
+This stagnation of performance is easily explained by the training of the adversary. The first iteration increases as the neural network is trained without an adversary, however
+
+\subsection{Performance Against Variable $F_2$}
+
+Is it robust?
+
+explain why the trained adv vs trained player won't work - if they push they same way then great, if not then it is rubbish.
+
+\section{Conclusions And Future Work}
+could put an increasing cost on either player playing the same move too many times?
+
+Make it more difficult for the player, e.g. add first order lag $F_t = \lambda F_{k-1} + (1-\lambda)u_k$. This may allow exploitation of resonant frequencies by the adversary.
+Suggestions for fixing the reward hacking (reiterate what was said already).
+Think of some other ideas.
+Talk about how the potential benefits was/wasn't achieved.
+
+\onlyinsubfile{\appendix}
 \onlyinsubfile{\subfile{Appendix.tex}}
 
 \end{document}

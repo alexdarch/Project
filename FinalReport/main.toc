@@ -1,0 +1,44 @@
+\babel@toc {english}{}
+\contentsline {chapter}{\numberline {1}Introduction}{3}% 
+\contentsline {section}{\numberline {1.1}Controlling Dynamical Systems}{3}% 
+\contentsline {section}{\numberline {1.2}Control Theory}{3}% 
+\contentsline {section}{\numberline {1.3}Reinforcement Learning}{5}% 
+\contentsline {section}{\numberline {1.4}AlphaZero}{5}% 
+\contentsline {subsection}{\numberline {1.4.1}Self Play and The Neural Network}{6}% 
+\contentsline {subsection}{\numberline {1.4.2}Monte Carlo Tree Search}{7}% 
+\contentsline {subsection}{\numberline {1.4.3}Policy Iteration}{8}% 
+\contentsline {section}{\numberline {1.5}Ranking and Elo Rating}{8}% 
+\contentsline {section}{\numberline {1.6}Summary of Potential Benefits}{9}% 
+\contentsline {chapter}{\numberline {2}Theory and Methods}{10}% 
+\contentsline {section}{\numberline {2.1}The Inverted Pendulum (IP)}{10}% 
+\contentsline {subsection}{\numberline {2.1.1}Dynamics}{10}% 
+\contentsline {subsection}{\numberline {2.1.2}Cost and Value Function}{11}% 
+\contentsline {subsection}{\numberline {2.1.3}State Representations}{12}% 
+\contentsline {subsection}{\numberline {2.1.4}Discretisation and Continuous Time}{14}% 
+\contentsline {section}{\numberline {2.2}Self Play and Adversaries}{15}% 
+\contentsline {subsection}{\numberline {2.2.1}Cost and Value Functions}{15}% 
+\contentsline {subsection}{\numberline {2.2.2}Choice of Action}{16}% 
+\contentsline {subsection}{\numberline {2.2.3}Agent Representation}{16}% 
+\contentsline {subsection}{\numberline {2.2.4}Episode Execution and Policy Iteration}{17}% 
+\contentsline {section}{\numberline {2.3}Neural Networks}{18}% 
+\contentsline {subsection}{\numberline {2.3.1}Loss Functions and Pareto}{18}% 
+\contentsline {subsection}{\numberline {2.3.2}Architectures}{19}% 
+\contentsline {section}{\numberline {2.4}MCTS}{19}% 
+\contentsline {subsection}{\numberline {2.4.1}Tree Nodes and Simulations}{19}% 
+\contentsline {subsection}{\numberline {2.4.2}Action Selection}{20}% 
+\contentsline {section}{\numberline {2.5}Player and Adversary Evaluation}{20}% 
+\contentsline {chapter}{\numberline {3}Results and Discussion}{23}% 
+\contentsline {section}{\numberline {3.1}Training}{23}% 
+\contentsline {subsection}{\numberline {3.1.1}MCTS}{23}% 
+\contentsline {subsection}{\numberline {3.1.2}State and Action Predictions}{25}% 
+\contentsline {subsection}{\numberline {3.1.3}Power Matching and the Policy}{28}% 
+\contentsline {subsection}{\numberline {3.1.4}Comparison with $f_{\theta }(\boldsymbol {x}^{(2D)})$}{30}% 
+\contentsline {section}{\numberline {3.2}Evaluation and Testing}{33}% 
+\contentsline {subsection}{\numberline {3.2.1}Performance Against a Random Opponent}{33}% 
+\contentsline {subsection}{\numberline {3.2.2}Performance Against Variable $F_2$}{33}% 
+\contentsline {section}{\numberline {3.3}Conclusions And Future Work}{34}% 
+\contentsline {chapter}{References}{35}% 
+\contentsline {chapter}{\numberline {A}Appendices}{37}% 
+\contentsline {section}{\numberline {A.1}Inverted Pendulum Dynamics Derivation}{37}% 
+\contentsline {section}{\numberline {A.2}Propagation of Quantisation Error}{39}% 
+\contentsline {section}{\numberline {A.3}Neural Network Losses}{41}% 
