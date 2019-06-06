@@ -7,18 +7,18 @@ from CartPoleWrapper import CartPoleWrapper
 args = Utils({
     # ---------- POLICY ITER ARGS -----------
     'policyIters': 20,  # 8
-    'initialTrainEps': 1,
-    'unopposedTrains': 1,         # how many trains do we ignore the adversary for?
-    'trainEps': 40,  # 40,
+    'initialTrainEps': 0,
+    'unopposedTrains': 0,         # how many trains do we ignore the adversary for?
+    'trainEps': 5,  # 40,
     'numMCTSSims': 15,  # 15/20,
     'tempThreshold': 14,
     'cpuct': 1.0,
-    'mctsTree': True,
-    'renderEps': False,
+    'mctsTree': False,
+    'renderEps': True,
 
 
     'checkpoint_folder': "NetCheckpoints",
-    'load_model': False,
+    'load_model': True,
     'load_folder_file': ('NetCheckpoints', 'best.pth.tar'),
 
     'numItersForTrainExamplesHistory': 5,

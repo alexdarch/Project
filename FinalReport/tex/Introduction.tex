@@ -2,10 +2,21 @@
 \begin{document}
 \chapter{Introduction}
 
-\section{Controlling Dynamical Systems}
-Dynamical systems have long been of great interest to engineers and scientists due to their ability to readily describe real world phenomena. They describe how a system changes through geometric space with time and, in principle, their trajectories can be predicted solely from their initial state. In recent years advances in computing power have allowed numerical methods to solve non-linear systems with relative ease. However, often a precise solution is of less import than a prediction of the long term qualitative behaviour of the system. Much effort has been made to find methods to describe this long-term behaviour such as those made by Lyapunov in stability theory \cite{4f2}. 
+\section{Project Aims and Motivation}
 
-A corollary of the importance of dynamical systems is that influencing their behaviour is particularly useful. Highly non-linear models are difficult to control optimally and robustly, and the few mathematical techniques developed to deal with these can only handle very small subcategories of problems \cite{4f2, 4f3}. The study of more general techniques to solve complex control problems has recently come to the forefront of the field with the advent of machine learning techniques such as reinforcement and deep learning. Many of these are not aimed specifically at control problems and are often designed to play games. This project looks at the possibility of adapting one such algorithm - AlphaZero - from playing board games to solving general control problems such as the control of an aircraft in flight or the control of under-actuated robotics by starting with a simple inverted pendulum.
+AlphaZero is a Reinforcement Learning algorithm developed by Google Deepmind. It can be thought of as a Robust Model Predictive Control algorithm that performs a directed tree search through the future states to return a control action rather than optimising over all future states. This allows it to dramatically reduce computational time, whilst searching more likely trajectories more deeply. Additionally, AlphaZero is a learning algorithm that trains a neural network representing a policy through self play. The adversary in self play can be considered to be a sequence of optimally adverse disturbances. This project looks at the application of AlphaZero to dynamical systems as a control method. This has a number of potential benefits above traditional optimal control or Reinforcement Learning methods. These include:
+
+\begin{description}
+    \item[Robust Disturbance Handling.] The Adversary in AlphaZero is effectively a ``worst case scenario disturbance''. By incorporating this into the training process, the controller should be able to cope with situations well outside normal operating conditions.
+    \item[Non-Linear Systems.] Neural networks are universal function approximators and, hence with the correct architecture, should be able to model any system.
+    \item[General Framework.] AlphaZero is a general algorithm that should be able to be applied to many different systems with minimal changes and still model the control well. 
+\end{description}
+
+
+\section{Controlling Dynamical Systems}
+Dynamical systems have long been of great interest to engineers and scientists due to their ability to readily describe real world phenomena. They describe how a system changes through geometric space with time and, in principle, their trajectories can be predicted solely from their initial state. In recent years advances in computing power have allowed numerical methods to solve non-linear systems with relative ease. However, often a precise solution is of less importance than a prediction of the long term qualitative behaviour of the system. Significant effort has been made to find methods to describe this long-term behaviour such as those made by Lyapunov in stability theory \cite{4f2}. 
+
+A corollary of the importance of dynamical systems is that influencing their behaviour is particularly useful. Highly non-linear models are difficult to control optimally and robustly, and the few mathematical techniques developed to deal with these can only handle very small subcategories of problems \cite{4f2, 4f3}. The study of more general techniques to solve complex control problems has recently come to the forefront of the field with the advent of machine learning techniques such as Reinforcement and Deep Learning. Many of these are not aimed specifically at control problems and are often designed to play games. This project looks at the possibility of adapting one such algorithm - AlphaZero - from playing board games to solving general control problems such as the control of an aircraft in flight or the control of under-actuated robotics by starting with a simple inverted pendulum.
 
 \section{Control Theory}
 The first attempts at controlling dynamical systems came from classical control theory, which consisted of a series of ``cut-and-try'' techniques based largely on adjusting the gains of PID controllers and lead/lag compensators until satisfactory closed loop dynamics were achieved \cite{History}.
@@ -37,7 +48,7 @@ Two further generalisations to dynamical systems and optimal control as defined 
     u^{*}_k & = \underset{u_k}{\text{argmax}}\; \mathbb{E} \Big[ r(x_k, u_k) + \lambda V(x_{k+1}) \Big]
 \end{align}
 
-Reinforcement learning (RL) aims to learn the optimal policy, $\pi^{*}(x_k)$ ($=u^{*}(x_k)$ in control) of an MDP. This differs from optimal control in its inherent stochastic nature and therefore can lead to intractable search spaces. A solution to this is to learn form sample trajectories. Algorithms such as Q-Learning, SARSA and DYNA have recently had great success in control applications such as their use in controlling mobile robots \cite{Qlearning, RLoverview}. Furthermore, the advent of neural networks has led to the extension of these to functional approximations from tabula-rasa methods, making the control of highly non-linear dynamical systems possible. Notably, Deepmind's recent success with training a robot to gently manipulate objects \cite{Robothand}, would not be possible to reproduce using classical or modern control techniques due to dimensional problems.
+Reinforcement Learning (RL) aims to learn the optimal policy, $\pi^{*}(x_k)$ ($=u^{*}(x_k)$ in control) of an MDP. This differs from optimal control in its inherent stochastic nature and therefore can lead to intractable search spaces. A solution to this is to learn form sample trajectories. Algorithms such as Q-Learning, SARSA and DYNA have recently had great success in control applications such as their use in controlling mobile robots \cite{Qlearning, RLoverview}. Furthermore, the advent of neural networks has led to the extension of these to functional approximations from tabula-rasa methods, making the control of highly non-linear dynamical systems possible. Notably, Deepmind's recent success with training a robot to gently manipulate objects \cite{Robothand}, would not be possible to reproduce using classical or modern control techniques due to dimensional problems.
 
 \section{AlphaZero}
 AlphaGo Zero is a revolutionary Reinforcement Learning algorithm that achieved superhuman performance in the game of Go, winning 100–0 against the previously published, champion-defeating AlphaGo. It's successor, AlphaZero, is a generalised version that can achieve superhuman performance in many games. There are two key sub-algorithms that form the basis of their success: Monte-Carlo tree search (MCTS) for policy improvement, and a deep CNN for the neural policy and value network. Policy iteration is then implemented through self-play. AlphaGo Zero and AlphaZero differ only in the latter's use of a single neural network that is updated iteratively, rather than evaluated against the previous one, and by not taking advantage of the symmetries of the games.
@@ -107,33 +118,7 @@ After a set number of simulations (1600), the MCTS-improved action \textit{p.m.f
 
 AlphaZero uses a single neural network that continually updates, irrespective of whether it is better or worse than the previous network. Whereas AlphaGo Zero games are generated using the best player from all previous iterations and then only replaced if the new player wins $> 50\%$ of evaluation games played.
 
-Evaluation is done by playing 400 or more greedy $(\tau \rightarrow 0)$ games of the current best neural network against the challenging neural network. The networks are then ranked based on an elo scoring system.
-
-\section{Ranking and Elo Rating}
-
-The Elo rating system is a method of finding players' relative skills in two player games such as chess \cite{elo}. The Elo system is based upon every player having an average skill level $\mu_i$, and variation distributed normally about their mean , i.e. $skill \sim \mathcal{N}(skill | \mu_i, \sigma)$. Therefore, the probability of one player beating the other is given by the cumulative density function (\textit{c.d.f.}) of the difference of their Gaussians. This can be approximated as a logistic function, and written as:
-
-\begin{equation}
-   \label{equ:elo}
-   \mathbb{E}[s_{p1}] = \frac{1}{1+10^{(\mu_{p2} - \mu_{p1})/400}}
-\end{equation}
-
-Where 400 is a scaling factor such that the means can be used as the player rating, and s is the score. The rule for then updating each player's rating is given by:
-
-\begin{equation}
-   \mu^{(new)} = \mu^{(old)} + 32(Score - \mathbb{E}[s])
-\end{equation}
-
-where 32 is again an arbitrary constant. New players are given an initial ranking of 1000.
-
-\section{Summary of Potential Benefits}
-
-The application of AlphaZero to dynamical systems a number of potential benefits above traditional optimal control or reinforcement learning. These include:
-\begin{description}
-    \item[Robust Disturbance Handling.] The Adversary in AlphaZero is effectively a ``worst case scenario disturbance''. By incorporating this into the training process, the controller should be able to cope with situations well outside normal operating conditions.
-    \item[Non-Linear Systems.] Neural networks are universal function approximators and, hence with the correct architecture, therefore should be able to model any system.
-    \item[General Framework.] AlphaZero is a general algorithm that should be able to be applied to many different systems with minimal changes and still model the control well. 
-\end{description}
+Evaluation is done by playing 400 or more greedy $(\tau \rightarrow 0)$ games of the current best neural network against the challenging neural network. The networks are then ranked based on an elo scoring system (the standard ranking system used in professional chess).
 
 \onlyinsubfile{\subfile{Bibliography.tex}}
 

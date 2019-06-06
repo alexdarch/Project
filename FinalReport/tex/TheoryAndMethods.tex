@@ -78,6 +78,7 @@ Suitable estimates for the the values of $\dot{x}_{max}$ and $\dot{\theta}_{max}
 
 Where for simplicity of notation, $v_0 = v(t)$, the state value at step t. Once a terminal state (either out of bounds, or the maximum number of steps) has been reached, the simulation continues for k steps in order for a value to be calculated for every step of the episode.
 
+\newpage
 \subsection{State Representations}
 
 \begin{wrapfigure}{R}{9.5cm}
@@ -85,10 +86,10 @@ Where for simplicity of notation, $v_0 = v(t)$, the state value at step t. Once 
    \begin{minipage}{\dimexpr9.5cm-1\fboxsep-1\fboxrule}
       \centering
       \includegraphics[width=9.2cm]{State2D.PNG}
-      \caption{An example of a 2D state representation where there are 20 bins and 17 random actions have been taken.}
+      \caption{An example of a 2D state representation with 40 bins and 8 random actions have been taken. The discount factor, $\lambda$, is 0.5.}
       \vspace{0.3cm}
+      \label{fig:state2D}
    \end{minipage}}
-   \label{fig:state2D}
 \end{wrapfigure}
 
 The state can be represented in a number of ways. The simplest method would be $\boldsymbol{x} = [x, \dot{x}, \theta, \dot{\theta}]$. This has a number of advantages such as lower computational cost, greater numerical accuracy (if the process is fully observable) and simpler implementation. Conversely, a 2-dimensional (2D) representation may be used. There are several possibilities for this, all of which first require binning $\boldsymbol{x}$:
@@ -97,7 +98,7 @@ The state can be represented in a number of ways. The simplest method would be $
 
 (2) A matrix stack of $x_t$ vs $x_{t-1}$ for all states. Similarly this scales as $b^n$, however the derivative states do not need to be plotted as these can be inferred. This has the advantage that, if the derivatives are not observable, they are built into the 2D representation, however, if they are observable then this is less accurate than (1).
 
-(3) A matrix of discounted previous states, forming a motion history image. An example of this is shown in \cref{fig:state2D},  and \cref{alg:state2d} shows the implementation details. This was the chosen representation.
+(3) A matrix of discounted previous states, forming a motion history image. An example of this is shown in \cref{fig:state2D},  and \cref{alg:state2d} shows the implementation details. This was the chosen representation, where the discount factor, $\lambda$ was chosen to be 0.5 as this ensures that successive summing of states gives distinct values (e.g. 0.5+0.125 is the only way to get 0.625, therefore the IP must have been in that position both 1 and 3 time steps ago).
 
 A 2D representation such as this allows us to use a convolutional neural network (CNN), which has the benefit of various transformation invariances - these are particularly useful for the inverted pendulum since it is symmetric.
 
@@ -183,8 +184,9 @@ The handicap can be approximated using the linearised dynamics \cref{equ:lineari
 \end{align}
 \end{subequations}
 
-Empirically, the pendulum is more likely to fall over (exceed $\theta_{max}$) rather than to exceed $x_{max}$. Therefore, a good estimate of $h$ would be $\frac{m}{2M+m} = \frac{0.1}{2+0.1} \approx 0.0476$. When testing this it was found that if $F_1$ was set near $0.04-0.05$ initially, the adversary gets the upper-hand quickly and the pendulum falls very quickly, not allowing the player to gain any training experience. Therefore, for the first N iterations, the adversary force was set to 0, and increased as the number of iterations increased according to $h = (1-0.7^{\,i-N+1})$, where i is the iteration, and 0.7 was chosen such that the adversary could be implemented on the first iteration without overpowering the still-training player.
+Empirically, the pendulum is more likely to fall over (exceed $\theta_{max}$) rather than to exceed $x_{max}$. Therefore, a good estimate of $h$ would be $\frac{m}{2M+m} = \frac{0.1}{2+0.1} \approx 0.0476$. When testing this it was found that if $F_1$ was set near $0.04-0.05$ initially, the adversary gets the upper-hand quickly and the pendulum falls very quickly, not allowing the player to gain any training experience. Therefore, for the first N iterations, the adversary force was set to 0. This was increased as the number of iterations increased according to $h = (1-0.7^{\,i-N+1})$, where i is the iteration, and 0.7 was chosen such that the adversary could be implemented on the first iteration without overpowering the still-training player.
 
+\newpage
 \subsection{Agent Representation}
 
 There are two good ways of representing whether it is the adversary's turn for the neural network: 
@@ -269,17 +271,17 @@ The following loss function is minimised when training the neural networks:
 
 Assuming that policy action predictions and value predictions are of similar importance, similar magnitudes of action and value losses are desireable. The constant, $c_{pareto}$, was chosen such that ($\mathcal{L}_{action} \approx \mathcal{L}_{value}$). The minimum entropy for two possible actions is 1bit, and since the action loss is the negative log likelihood of a categorical distribution, the minimum loss is -1. The value losses are calculated using the MSE, which is positive, and has an average value of approximately $0.1$ (\cref{fig:nnetlosses0,fig:nnetlosses1,fig:nnetlosses2,fig:nnetlosses10}), therefore $c_{pareto}$ was set to 0.1.
 
-During training the agents were chosen to move probabilistically throughout for the first 14 moves, and then move greedily. 14 was chosen as this is the average episode length when the player moves randomly without an adversary.
+During training, the agents were chosen to move probabilistically throughout for the first 14 moves, and then move greedily. The number 14 was chosen as it is the average episode length when the player moves randomly without an adversary.
 
 \subsection{Architectures}
 \label{sec:architectures}
-Two neural network architectures are used, one that takes the raw state, $\boldsymbol{x} = [x \; \dot{x} \; \theta \; \dot{\theta}]^T$ as input (the ``\textit{baseline}'' network), and another that takes the 2D state, $\boldsymbol{x}^{(2D)}$ (the convolutional neural network, ``\textit{CNN}''). The adversary and player have separate networks, both predicting the state-value and action \textit{p.m.f}s.
+Two neural network architectures are used: one that takes the raw state, $\boldsymbol{x} = [x \; \dot{x} \; \theta \; \dot{\theta}]^T$ as input (the ``\textit{baseline}'' network) and another that takes the 2D state, $\boldsymbol{x}^{(2D)}$ (the convolutional neural network, ``\textit{CNN}''). The adversary and player have separate networks, both predicting the state-value and action \textit{p.m.f}s.
 
 For the network with $\boldsymbol{x}^{(2D)}$ as input, there are 2 fully connected convolutional layers with max-pooling, followed by a feedforward layer with \textit{ReLU} activations. The two ``heads'' split here and each has fully-connected layer, with the value head outputting $v_\theta$ and the action head outputting $\boldsymbol{p}_\theta$. The network with $\boldsymbol{x}$ as input is the same, except the convolutional layers are replaced with 2 feedforward layers.
 
-Both architectures perform training with the \textit{Adam Optimiser}using a learning rate of 0.0005, a mini-batch size of 64, a dropout of 0.3, batch normalisation and 1 epoch. The networks are implemented in pytorch\footnote{www.pytorch.org}.
+Both architectures perform training with the \textit{Adam Optimiser} using a learning rate of 0.0005, a mini-batch size of 64, a dropout of 0.3, batch normalisation and 1 epoch. The networks are implemented in pytorch\footnote{www.pytorch.org}.
 
-The neural network is evaluated once every step in the MCTS, therefore in an episode of length L and S MCTS simulations/step, the neural network is evaluated more than $L\times S$ times. The GPU used to run experiments is a single NVIDEA GeForce GTX 1050. The convolutional layers of a neural network are the most computationally expensive part and, increasing with the image size, are more than 50\% of the computational time in the architectures defined above. Therefore, there is a trade off between the number of convolutional layers used and computation time. The number of layers was chosen such that running the program takes less than 24hrs. Additionally, the memory of the GPU is 4GB, which limits the number of weights that can be used in the neural networks. It was found that adding an additional layer to the CNN exceeds this memory limit. The architecture of the baseline network was chosen to match that of the CNN.
+The neural network is evaluated once every step in the MCTS, therefore in an episode of length L and S MCTS simulations/step, the neural network is evaluated more than $L\times S$ times. The GPU used to run experiments is a single NVIDIA GeForce GTX 1050. The convolutional layers of a neural network are the most computationally expensive part and, increasing with the image size, are more than 50\% of the computational time in the architectures defined above. Therefore, there is a trade off between the number of convolutional layers used and computation time. The number of layers was chosen such that running the program takes less than 24hrs. Additionally, the memory of the GPU is 4GB, which limits the number of weights that can be used in the neural networks. It was found that adding an additional layer to the CNN exceeds this memory limit. The architecture of the baseline network was chosen to match that of the CNN.
 
 \section{MCTS}
 
@@ -295,9 +297,8 @@ Action selection moving down the tree was modified to reflect the asymmetry of t
 {
 \newcommand{\bx}{\boldsymbol{x}}
 \begin{align}
-   u^*_{player} & = \underset{u \; \in \; \mathcal{U}_{player}}{\text{argmax}} \Big{\{} Q(\bx, u) + c_{explore} \cdot\boldsymbol{p}_\theta (\bx, u)\frac{\sqrt{\sum_b N(\bx, b)}}{1 + N(\bx, b)}\Big{\}} =  \underset{u \; \in \; \mathcal{U}_{player}}{\text{argmax}} \; U_{player}(\bx, u) \\
+   u^*_{player} & = \underset{u \; \in \; \mathcal{U}_{player}}{\text{argmax}} \Big{\{} Q(\bx, u) + c_{explore} \cdot\boldsymbol{p}_\theta (\bx, u)\frac{\sqrt{\sum_b N(\bx, b)}}{1 + N(\bx, b)}\Big{\}} =  \underset{u \; \in \; \mathcal{U}_{player}}{\text{argmax}} \; U_{player}(\bx, u) \label{equ:IPucb}\\
    u^*_{adv} & = \underset{u \; \in \; \mathcal{U}_{adv}}{\text{argmax}} \Big{\{} -Q(\bx, u) + c_{explore} \cdot\boldsymbol{p}_\theta (\bx, u)\frac{\sqrt{\sum_b N(\bx, b)}}{1 + N(\bx, b)}\Big{\}} = \underset{u \; \in \; \mathcal{U}_{adv}}{\text{argmax}} \; U_{adv}(\bx, u)
-   \label{eqn:IPucb}
 \end{align}
 }
 
@@ -375,21 +376,11 @@ When the inverted pendulum exceeds a constraint the tree search should return -1
 \newcommand{\fp}[1]{f_{\theta, \; #1}^{(player)}}
 \newcommand{\fa}[1]{f_{\theta, \; #1}^{(adv)}}
 
-For problems in which one agent has a distinct advantage, determining how ``good'' their policy is compared to other policies becomes difficult. For example, if the pendulum stays up for longer, is is difficult to determine whether the player has improved because it is controlling the system better, or the adversary is less effective, or both have improved but one improved more. The score used is the number of steps the agent stayed up for divided by the max number of steps. For the player this ranges between 0 and 1, and for the adversary $score = (200-steps)/200$ is used. \todo{does this make sense?}
+For problems in which one agent has a distinct advantage, determining the utility of the player's policy compared to other policies becomes difficult. For example, if the pendulum stays up for longer, is is difficult to determine whether the player has improved because it is controlling the system better, the adversary is less effective, or both have improved but one improved more. The score used is the cost plus one, $score = c(\boldsymbol{x})+1$, such that the score is between 0 and 1, with 1 having the highest utility. If the pendulum has fallen over, the score is 0 for all steps until the episode ends, therefore making it possible to compare between episodes of differing lengths.
 
-Over one policy iteration, there are 4 different policies: the two current player and adversary policies, $\fp{curr}$ and $\fa{curr}$, and the challenger policies,  $\fp{chal}$ and $\fa{chal}$. The improvement of the player can be determined by pitting the current player against the current adversary, and then the challenging player against the current adversary; and vice-versa for the adversary improvement\footnote{Note, if the ratings were correctly updated in the last policy iteration then $\mathbb{E}[\mathbb{E}[s_{curr}^{agent}] - \mu_{curr}^{agent}] = 0$}. This gives the four equations in \cref{equ:elo}.
+Testing is performed by loading a saved policy's weights into the neural networks, and then simulating a number of episodes of this against various agents. Adversarial agents to be tested are the adversaries themselves and a random adversary with differing forces, $F_2$. Additionally, the effect of the number of MCTS simulations per step is tested for a random adversary. 
 
-\begin{align}
-   \mathbb{E}[s^p_{curr}] &= \frac{1}{1+10^\wedge \big( \frac{\mu^a_{curr} - \mu^p_{curr}}{400} \big)} \hspace{1cm} &\mathbb{E}[s^a_{curr}] = \frac{1}{1+10^\wedge \big( \frac{\mu^p_{curr} - \mu^a_{curr}}{400} \big)}\\
-   \mathbb{E}[s^p_{chal}] &= \frac{1}{1+10^\wedge \big( \frac{\mu^a_{curr} - \mu^p_{chal}}{400} \big)} \hspace{1cm} &\mathbb{E}[s^a_{chal}] = \frac{1}{1+10^\wedge \big( \frac{\mu^p_{curr} - \mu^a_{chal}}{400} \big)}\\
-\end{align}
-
-where $\mathbb{E}[s^p_{curr}] = \mathbb{E}[s(\fp{curr})]$ denotes the score for the current player, and $\mu^p_{curr} = \mu(\fp{curr})$ is the rating of the current player. The expected scores can be estimated via monte-carlo. Rearranging gives the relation between successive agent ratings as:
-
-\begin{equation}
-   \mu^p_{chal} = \mu^p_{curr} + 400log_{10} \bigg( \frac{{E}[s^p_{chal}]}{1 - {E}[s^p_{chal}]} \cdot \frac{1 - {E}[s^p_{curr}]}{{E}[s^p_{curr}]}    \bigg)
-\end{equation}
-
+The mean iteration score is calculated by summing all of the costs over all episodes and taking the mean value for an iteration, rather than taking the mean value for an episode and then taking the mean of the episodes in that iteration.
 
 %\onlyinsubfile{\subfile{Bibliography.tex}}
 \onlyinsubfile{\appendix}

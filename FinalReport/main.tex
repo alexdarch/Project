@@ -23,6 +23,8 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{url}
+\usepackage{fancyhdr}
+\usepackage[bottom]{footmisc}
 
 \titleformat
 {\chapter} % command
@@ -47,13 +49,23 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % --------------- BEGIN DOCUMENT --------------
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+\pagenumbering{roman}
 \begin{document}
 \renewcommand{\onlyinsubfile}[1]{}
 \renewcommand{\notinsubfile}[1]{#1}
-
 \subfile{./tex/title.tex}
+\subfile{./tex/Abstract.tex}
 \tableofcontents{}
+
+\newpage
+\pagestyle{fancy}
+\rhead{}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
 
 \subfile{./tex/Introduction.tex}
 \subfile{./tex/TheoryAndMethods.tex}
